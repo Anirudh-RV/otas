@@ -1,0 +1,76 @@
+version: "3.8"
+
+services:
+  brain-db:
+    image: postgres:16
+    volumes:
+      - brain_postgres_data:/var/lib/postgresql/brain_data
+    env_file:
+      - ../env/env-local.env
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brainuser -d braindb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  brain-redis:
+    image: redis:7-alpine
+    ports:
+      - "6378:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  brain-backend:
+    build:
+      context: ..
+      dockerfile: Dockerfiles/Dockerfile-local
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ..:/code
+    ports:
+      - "8002:8000"
+    env_file:
+      - ../env/env-local.env
+    depends_on:
+      brain-db:
+        condition: service_healthy
+      brain-redis:
+        condition: service_healthy
+
+  brain-celery:
+    build:
+      context: ..
+      dockerfile: Dockerfiles/Dockerfile-local
+    command: celery -A brain worker --loglevel=info
+    volumes:
+      - ..:/code
+    env_file:
+      - ../env/env-local.env
+    depends_on:
+      brain-db:
+        condition: service_healthy
+      brain-redis:
+        condition: service_healthy
+
+  brain-celery-beat:
+    build:
+      context: ..
+      dockerfile: Dockerfiles/Dockerfile-local
+    command: celery -A brain beat --loglevel=info
+    volumes:
+      - ..:/code
+    env_file:
+      - ../env/env-local.env
+    depends_on:
+      brain-db:
+        condition: service_healthy
+      brain-redis:
+        condition: service_healthy
+
+volumes:
+  brain_postgres_data:

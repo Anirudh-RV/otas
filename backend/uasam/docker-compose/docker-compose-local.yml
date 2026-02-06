@@ -1,0 +1,76 @@
+version: "3.8"
+
+services:
+  uasam-db:
+    image: postgres:16
+    volumes:
+      - uasam_postgres_data:/var/lib/postgresql/uasam_data
+    env_file:
+      - ../env/env-local.env
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uasamuser -d uasamdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  uasam-redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  uasam-backend:
+    build:
+      context: ..
+      dockerfile: Dockerfiles/Dockerfile-local
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ..:/code
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../env/env-local.env
+    depends_on:
+      uasam-db:
+        condition: service_healthy
+      uasam-redis:
+        condition: service_healthy
+
+  uasam-celery:
+    build:
+      context: ..
+      dockerfile: Dockerfiles/Dockerfile-local
+    command: celery -A uasam worker --loglevel=info
+    volumes:
+      - ..:/code
+    env_file:
+      - ../env/env-local.env
+    depends_on:
+      uasam-db:
+        condition: service_healthy
+      uasam-redis:
+        condition: service_healthy
+
+  uasam-celery-beat:
+    build:
+      context: ..
+      dockerfile: Dockerfiles/Dockerfile-local
+    command: celery -A uasam beat --loglevel=info
+    volumes:
+      - ..:/code
+    env_file:
+      - ../env/env-local.env
+    depends_on:
+      uasam-db:
+        condition: service_healthy
+      uasam-redis:
+        condition: service_healthy
+
+volumes:
+  uasam_postgres_data:
