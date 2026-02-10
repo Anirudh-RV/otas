@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pyodide Standalone Test</title>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
+  </head>
+  <body>
+    <h1>Pyodide Standalone Test</h1>
+    <pre id="output"></pre>
+
+    <script type="text/javascript">
+      async function main() {
+        const outputElement = document.getElementById("output");
+        function appendOutput(msg) {
+          outputElement.textContent += msg + "\n";
+        }
+
+        try {
+          appendOutput("Attempting to load Pyodide...");
+
+          if (typeof window.loadPyodide === "function") {
+            appendOutput("window.loadPyodide is available. Initializing...");
+            const pyodide = await window.loadPyodide({
+              indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.1/full/",
+              stdout: appendOutput,
+              stderr: appendOutput,
+            });
+            appendOutput("Pyodide loaded successfully!");
+            appendOutput("Running Python code...");
+            await pyodide.runPythonAsync(`
+                        print("Hello from Python in Pyodide!")
+                        import sys
+                        sys.stderr.write("This is a test stderr message.\\n")
+                    `);
+            appendOutput("Python code executed.");
+          } else {
+            appendOutput("ERROR: window.loadPyodide is NOT a function.");
+            // Add more checks to see what it is
+            appendOutput(
+              `Type of window.loadPyodide: ${typeof window.loadPyodide}`
+            );
+            appendOutput(`Value of window.loadPyodide: ${window.loadPyodide}`);
+          }
+        } catch (error) {
+          appendOutput(
+            `ERROR: Pyodide failed to load or run: ${error.message || error}`
+          );
+          console.error("Standalone Pyodide Test Error:", error);
+        }
+      }
+      main();
+    </script>
+  </body>
+</html>

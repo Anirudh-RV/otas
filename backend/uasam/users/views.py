@@ -15,9 +15,11 @@ class CreateUserViewV1(View):
             # Parse request body
             body = json.loads(request.body)
             
+            print(f"BODY: {body}")
+            
             # Validate required fields
             required_fields = ['first_name', 'last_name', 'email', 'password']
-            missing_fields = [field for field in required_fields if not body.get(field)]
+            missing_fields = [field for field in required_fields if field not in body]
             
             if missing_fields:
                 return JsonResponse({
