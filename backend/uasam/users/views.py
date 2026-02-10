@@ -79,3 +79,42 @@ class CreateUserViewV1(View):
                 'status_description': f'server_error: {str(e)}',
                 'response_body': None
             }, status=400)
+
+
+class LoginViewV1(View):
+    """
+    API endpoint to login a user
+    POST /api/user/v1/login/
+    """
+
+    def post(self, request):
+        try:
+            body = json.loads(request.body)
+
+            email = body.get('email_id', '').strip().lower()
+            password = body.get('Password', '') or body.get('password', '')
+
+            if not email or not password:
+                return JsonResponse({
+                    'status': 0,
+                    'status_description': 'login_failed',
+                }, status=401)
+
+            result = UserServices.login_user(email=email, password=password)
+
+            if result['status'] == 1:
+                return JsonResponse(result, status=200)
+            else:
+                return JsonResponse(result, status=401)
+
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'status': 0,
+                'status_description': 'login_failed',
+            }, status=401)
+
+        except Exception:
+            return JsonResponse({
+                'status': 0,
+                'status_description': 'login_failed',
+            }, status=401)
