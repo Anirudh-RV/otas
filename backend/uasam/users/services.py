@@ -1,6 +1,7 @@
 import jwt
 from datetime import datetime, timedelta
 from django.conf import settings
+from django.contrib.auth.hashers import check_password
 from .models import User
 from .constants import JWT_SECRET, JWT_VALIDITY_DAYS
 
@@ -58,6 +59,42 @@ class UserServices:
                 'response_body': None
             }
     
+    @staticmethod
+    def login_user(email, password):
+        """
+        Authenticate user by email and password, return user data with JWT token
+        """
+        try:
+            user = User.objects.filter(email=email).first()
+
+            if not user or not check_password(password, user.password):
+                return {
+                    'status': 0,
+                    'status_description': 'login_failed',
+                }
+
+            jwt_token = UserServices.generate_jwt_token(user)
+
+            return {
+                'status': 1,
+                'status_description': 'login_success',
+                'response': {
+                    'user': {
+                        'id': str(user.id),
+                        'first_name': user.first_name,
+                        'middle_name': user.middle_name,
+                        'last_name': user.last_name,
+                    },
+                    'jwt_token': jwt_token
+                }
+            }
+
+        except Exception as e:
+            return {
+                'status': 0,
+                'status_description': 'login_failed',
+            }
+
     @staticmethod
     def generate_jwt_token(user):
         """
