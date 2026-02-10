@@ -7,14 +7,18 @@ TODO:
 
 # Run
 
-## Running frontend for dev
+## Running frontend for dev (Use this for all developing purposes)
+
+> cd otas-frontend
 
 > npm run dev
 
 ## For building the Frontend
 
 > cd frontend
+
 > npm install
+
 > npm run build
 
 ## To run the server
