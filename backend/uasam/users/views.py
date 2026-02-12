@@ -91,7 +91,7 @@ class LoginViewV1(View):
         try:
             body = json.loads(request.body)
 
-            email = body.get('email_id', '').strip().lower()
+            email = body.get('email', '').strip().lower()
             password = body.get('Password', '') or body.get('password', '')
 
             if not email or not password:

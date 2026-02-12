@@ -64,16 +64,23 @@ class ProjectCreateView(View):
     """
 
     def post(self, request, *args, **kwargs):
-        # TEMP: get hardcoded user
-        # DEV: get the dev user by username
-        try:
-            user = User.objects.get(username="")
-        except User.DoesNotExist:
-            logger.error("Dev user not found")
-            return JsonResponse(
-                {"status": 0, "status_description": "user_not_found"},
-                status=400,
-            )
+        # 1. Get Token from Header
+        token = request.META.get('HTTP_X_OTAS_USER_TOKEN')
+        
+        if not token:
+            return JsonResponse({
+                "status": 0, 
+                "status_description": "missing_token"
+            }, status=400)
+
+        # 2. Authenticate User (The real fix)
+        user = UserServices.get_user_from_token(token)
+        
+        if not user:
+            return JsonResponse({
+                "status": 0, 
+                "status_description": "invalid_token"
+            }, status=401)
 
 
         # Parse JSON body
