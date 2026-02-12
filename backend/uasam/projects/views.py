@@ -1,11 +1,9 @@
-# apps/projects/views.py
 import json
 import logging
-import jwt
+import uuid
 
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.views import View
-from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from django.contrib.auth import get_user_model
@@ -16,20 +14,10 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
-def decode_user_jwt(token: str):
-    """
-    Decode the X-OTAS-USER-TOKEN. Adjust to your JWT secret/algorithm and claims.
-    Returns the payload dict or raises jwt exceptions.
-    """
-    return jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
-
-
 def validate_create_project_payload(payload: dict):
     """
     Inline validator for create project request payload.
     Returns (is_valid: bool, data_or_errors: dict)
-    On success data_or_errors will be {'project_name': str, 'project_description': str}
-    On failure it will be {'errors': ['msg1', 'msg2', ...]}
     """
     errors = []
     if not isinstance(payload, dict):
@@ -55,9 +43,8 @@ def validate_create_project_payload(payload: dict):
         desc = ""
     if not isinstance(desc, str):
         errors.append("project_description must be a string")
-    else:
-        if len(desc) > 300:
-            errors.append("project_description max 300 characters")
+    elif len(desc) > 300:
+        errors.append("project_description max 300 characters")
 
     if errors:
         return False, {"errors": errors}
@@ -68,40 +55,25 @@ def validate_create_project_payload(payload: dict):
 class ProjectCreateView(View):
     """
     POST /api/project/v1/create/
-    Header: X-OTAS-USER-TOKEN: <jwt_token>
     Body: { "project_name": "...", "project_description": "..." }
+
+    DEV NOTE: Currently hardcoding user ID until auth decorator is ready.
     """
 
     def post(self, request, *args, **kwargs):
-        # 1) Header check
-        token = request.headers.get("X-OTAS-USER-TOKEN")
-        if not token:
+        # TEMP: get hardcoded user
+        # DEV: get the dev user by username
+        try:
+            user = User.objects.get(username="")
+        except User.DoesNotExist:
+            logger.error("Dev user not found")
             return JsonResponse(
-                {"status": 0, "status_description": "project_creation_failed"},
-                status=401,
+                {"status": 0, "status_description": "user_not_found"},
+                status=400,
             )
 
-        # 2) Decode token and load user
-        try:
-            payload = decode_user_jwt(token)
-            # common claim names: user_id or sub
-            user_id = payload.get("user_id") or payload.get("sub")
-            if not user_id:
-                logger.warning("JWT missing user identifier: payload=%s", payload)
-                return JsonResponse({"status": 0, "status_description": "project_creation_failed"}, status=401)
-            try:
-                user = User.objects.get(pk=user_id)
-            except User.DoesNotExist:
-                logger.warning("User not found from token: user_id=%s", user_id)
-                return JsonResponse({"status": 0, "status_description": "project_creation_failed"}, status=401)
-        except jwt.ExpiredSignatureError:
-            logger.info("Expired token used for project create")
-            return JsonResponse({"status": 0, "status_description": "project_creation_failed"}, status=401)
-        except Exception as e:
-            logger.exception("Error decoding token or loading user")
-            return JsonResponse({"status": 0, "status_description": "project_creation_failed"}, status=401)
 
-        # 3) Parse JSON body
+        # Parse JSON body
         try:
             body = json.loads(request.body or "{}")
         except json.JSONDecodeError:
@@ -111,26 +83,37 @@ class ProjectCreateView(View):
                 content_type="application/json",
             )
 
-        # 4) Validate inline
+        # 🔹 Debug: log request body
+        print("Request body:", body)
+        logger.info("Request body: %s", body)
+
+        # Validate payload
         is_valid, result = validate_create_project_payload(body)
         if not is_valid:
-            # For security/consistency we return the same failure format, but log errors for debugging.
+            # 🔹 Log validation errors
             logger.info("Project creation validation failed: %s", result["errors"])
-            return JsonResponse({"status": 0, "status_description": "project_creation_failed"}, status=400)
+            return JsonResponse(
+                {
+                    "status": 0,
+                    "status_description": "project_creation_failed",
+                    "errors": result["errors"],  # return exact validation errors
+                },
+                status=400
+            )
 
         req_name = result["project_name"]
         req_desc = result["project_description"]
 
-        # 5) Create Project + UserProjectMapping in a single transaction
+        # Create Project + Mapping in single transaction
         try:
             with transaction.atomic():
                 project = Project.objects.create(
                     name=req_name,
                     description=req_desc,
                     created_by=user,
-                    created_at=timezone.now(),  # model default will set this anyway
+                    created_at=timezone.now(),
                 )
-                # create mapping as Admin (privilege = 1)
+
                 UserProjectMapping.objects.create(
                     user=user,
                     project=project,
@@ -138,21 +121,23 @@ class ProjectCreateView(View):
                     created_at=timezone.now(),
                 )
 
-            # success response (capitalized keys per your convention)
+            # Success response
             resp = {
-            "status": 1,
-            "status_description": "project_created",
-            "response_body": {
-                "project": {
-                    "id": str(project.id),
-                    "name": project.name,
-                    "description": project.description,
-                }
-            },
-        }
-
+                "status": 1,
+                "status_description": "project_created",
+                "response_body": {
+                    "project": {
+                        "id": str(project.id),
+                        "name": project.name,
+                        "description": project.description,
+                    }
+                },
+            }
             return JsonResponse(resp, status=201)
-        except Exception:
-            # log full exception, but return generic failure to caller
-            logger.exception("Failed to create project or mapping - transaction rolled back")
-            return JsonResponse({"status": 0, "status_description": "project_creation_failed"}, status=500)
+
+        except Exception as e:
+            logger.exception("Failed to create project or mapping")
+            return JsonResponse(
+                {"status": 0, "status_description": "project_creation_failed"},
+                status=500,
+            )
