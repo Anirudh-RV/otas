@@ -118,3 +118,51 @@ class LoginViewV1(View):
                 'status': 0,
                 'status_description': 'login_failed',
             }, status=401)
+    
+class UserAuthenticateViewV1(View):
+    """
+    API endpoint to authenticate user via Token
+    POST /api/user/v1/authenticate/
+    """
+    
+    def post(self, request):
+        try:
+            # 1. Get Token from Header 
+            # Django converts "X-OTAS-USER-TOKEN" to "HTTP_X_OTAS_USER_TOKEN"
+            token = request.META.get('HTTP_X_OTAS_USER_TOKEN')
+            
+            if not token:
+                return JsonResponse({
+                    'status': 0,
+                    'status_description': 'missing_token',
+                    'response_body': None
+                }, status=400)
+            
+            # 2. Validate Token & Get User via Service
+            user = UserServices.get_user_from_token(token)
+            
+            if not user:
+                return JsonResponse({
+                    'status': 0,
+                    'status_description': 'invalid_token',
+                    'response_body': None
+                }, status=401)
+            
+            # 3. Success Response
+            return JsonResponse({
+                'User': {
+                    'id': str(user.id),
+                    'first_name': user.first_name,
+                    'middle_name': user.middle_name,
+                    'last_name': user.last_name,
+                    'email': user.email,
+                    # Add other fields if needed
+                }
+            }, status=200)
+
+        except Exception as e:
+            return JsonResponse({
+                'status': 0,
+                'status_description': f'server_error: {str(e)}',
+                'response_body': None
+            }, status=500)

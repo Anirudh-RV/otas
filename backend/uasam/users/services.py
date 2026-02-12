@@ -112,3 +112,21 @@ class UserServices:
         
         token = jwt.encode(payload, secret_key, algorithm='HS256')
         return token
+    
+    @staticmethod
+    def get_user_from_token(token):
+        """
+        Decode JWT token and return the User object.
+        Returns None if token is invalid or user does not exist.
+        """
+        try:
+            # Decode the token using the same secret and algorithm
+            payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+            user_id = payload.get('user_id')
+            
+            # Fetch user from DB
+            user = User.objects.get(id=user_id)
+            return user
+            
+        except (jwt.ExpiredSignatureError, jwt.DecodeError, User.DoesNotExist):
+            return None
