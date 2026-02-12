@@ -7,8 +7,9 @@ from django.views import View
 from django.db import transaction
 from django.utils import timezone
 from django.contrib.auth import get_user_model
+from django.views.decorators.csrf import csrf_exempt
 
-from .models import Project, UserProjectMapping
+from .models import Project, UserProjectMapping, BackendAPIKey
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -52,6 +53,31 @@ def validate_create_project_payload(payload: dict):
     return True, {"project_name": name, "project_description": desc}
 
 
+def validate_backend_sdk_key_payload(payload: dict):
+    """
+    Inline validator for backend SDK key creation request payload.
+    Returns (is_valid: bool, data_or_errors: dict)
+    """
+    errors = []
+    if not isinstance(payload, dict):
+        return False, {"errors": ["invalid_json"]}
+
+    # validity (required, integer, 1-300 days)
+    validity = payload.get("validity")
+    if validity is None:
+        errors.append("validity is required")
+    else:
+        if not isinstance(validity, int):
+            errors.append("validity must be an integer")
+        elif validity < 1 or validity > 300:
+            errors.append("validity must be between 1 and 300 days")
+
+    if errors:
+        return False, {"errors": errors}
+
+    return True, {"validity": validity}
+
+
 class ProjectCreateView(View):
     """
     POST /api/project/v1/create/
@@ -64,7 +90,7 @@ class ProjectCreateView(View):
         # TEMP: get hardcoded user
         # DEV: get the dev user by username
         try:
-            user = User.objects.get(username="")
+            user = User.objects.get(username="pod-b")
         except User.DoesNotExist:
             logger.error("Dev user not found")
             return JsonResponse(
@@ -140,4 +166,139 @@ class ProjectCreateView(View):
             return JsonResponse(
                 {"status": 0, "status_description": "project_creation_failed"},
                 status=500,
+            )
+
+
+class BackendSDKKeyCreateView(View):
+    """
+    POST /api/project/v1/sdk/backend/key/create/
+    
+    Create a new backend SDK API key for a project.
+    
+    Headers:
+    - X-OTAS-PROJECT-ID: Project UUID
+    
+    Body: { "validity": 30 } (days, max 300)
+    
+    Response: API key details (raw key shown ONLY ONCE)
+    
+    NOTE: Authentication will be added via decorators
+    """
+
+    @csrf_exempt
+    def post(self, request, *args, **kwargs):
+        # TEMP: get hardcoded user (same as ProjectCreateView)
+        # Later: will be provided by @authenticate_user decorator
+        try:
+            user = User.objects.get(username="pod-b")
+        except User.DoesNotExist:
+            logger.error("Dev user not found")
+            return JsonResponse(
+                {"status": 0, "status_description": "user_not_found"},
+                status=400,
+            )
+
+        # Parse JSON body
+        try:
+            body = json.loads(request.body or "{}")
+        except json.JSONDecodeError:
+            logger.warning("Invalid JSON in SDK key creation request")
+            return JsonResponse(
+                {
+                    "status": 0,
+                    "status_description": "sdk_key_creation_failed"
+                },
+                status=400
+            )
+
+        # Get project_id from header
+        # Later: will be provided by @require_project_access decorator
+        project_id = request.META.get('HTTP_X_OTAS_PROJECT_ID')
+        if not project_id:
+            return JsonResponse(
+                {
+                    "status": 0,
+                    "status_description": "missing_project_id_header"
+                },
+                status=400
+            )
+
+        # Get project
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            logger.warning(f"Project not found for ID: {project_id}")
+            return JsonResponse(
+                {
+                    "status": 0,
+                    "status_description": "project_not_found"
+                },
+                status=404
+            )
+
+        # Validate request payload
+        is_valid, result = validate_backend_sdk_key_payload(body)
+        if not is_valid:
+            logger.info("SDK key creation validation failed: %s", result["errors"])
+            return JsonResponse(
+                {
+                    "status": 0,
+                    "status_description": "sdk_key_creation_failed",
+                    "errors": result["errors"]
+                },
+                status=400
+            )
+
+        validity_days = result['validity']
+
+        # Generate API key
+        try:
+            with transaction.atomic():
+                full_key, prefix = BackendAPIKey.generate_key()
+
+                # Calculate expiration
+                expires_at = timezone.now() + timezone.timedelta(days=validity_days)
+
+                # Create API key record
+                api_key = BackendAPIKey.objects.create(
+                    prefix=prefix,
+                    project=project,
+                    created_at=timezone.now(),
+                    expires_at=expires_at,
+                    active=True
+                )
+
+                # Hash and store the key
+                api_key.hash_key(full_key)
+                api_key.save()
+
+                # Prepare response (raw key shown only once)
+                response_data = {
+                    'id': str(api_key.id),
+                    'prefix': api_key.prefix,
+                    'api_key': full_key,  # Raw key - shown only once
+                    'project_id': str(api_key.project_id),
+                    'name': api_key.name,
+                    'created_at': api_key.created_at.isoformat(),
+                    'expires_at': api_key.expires_at.isoformat() if api_key.expires_at else None,
+                    'active': api_key.active
+                }
+
+                return JsonResponse(
+                    {
+                        "status": 1,
+                        "status_description": "backend_sdk_key_created",
+                        "response_body": response_data
+                    },
+                    status=201
+                )
+
+        except Exception as e:
+            logger.exception("Failed to create SDK key")
+            return JsonResponse(
+                {
+                    "status": 0,
+                    "status_description": "sdk_key_creation_failed"
+                },
+                status=500
             )
