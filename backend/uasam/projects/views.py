@@ -90,7 +90,7 @@ class ProjectCreateView(View):
         # TEMP: get hardcoded user
         # DEV: get the dev user by username
         try:
-            user = User.objects.get(username="pod-b")
+            user = User.objects.get(username="")
         except User.DoesNotExist:
             logger.error("Dev user not found")
             return JsonResponse(
@@ -187,10 +187,10 @@ class BackendSDKKeyCreateView(View):
 
     @csrf_exempt
     def post(self, request, *args, **kwargs):
-        # TEMP: get hardcoded user (same as ProjectCreateView)
-        # Later: will be provided by @authenticate_user decorator
+        # TEMP: get hardcoded user
+        # Later: will be provided by auth decorator
         try:
-            user = User.objects.get(username="pod-b")
+            user = User.objects.get(username="")
         except User.DoesNotExist:
             logger.error("Dev user not found")
             return JsonResponse(
@@ -212,7 +212,6 @@ class BackendSDKKeyCreateView(View):
             )
 
         # Get project_id from header
-        # Later: will be provided by @require_project_access decorator
         project_id = request.META.get('HTTP_X_OTAS_PROJECT_ID')
         if not project_id:
             return JsonResponse(
@@ -223,7 +222,6 @@ class BackendSDKKeyCreateView(View):
                 status=400
             )
 
-        # Get project
         try:
             project = Project.objects.get(id=project_id)
         except Project.DoesNotExist:
@@ -255,11 +253,7 @@ class BackendSDKKeyCreateView(View):
         try:
             with transaction.atomic():
                 full_key, prefix = BackendAPIKey.generate_key()
-
-                # Calculate expiration
                 expires_at = timezone.now() + timezone.timedelta(days=validity_days)
-
-                # Create API key record
                 api_key = BackendAPIKey.objects.create(
                     prefix=prefix,
                     project=project,
@@ -267,12 +261,9 @@ class BackendSDKKeyCreateView(View):
                     expires_at=expires_at,
                     active=True
                 )
-
-                # Hash and store the key
                 api_key.hash_key(full_key)
                 api_key.save()
 
-                # Prepare response (raw key shown only once)
                 response_data = {
                     'id': str(api_key.id),
                     'prefix': api_key.prefix,
