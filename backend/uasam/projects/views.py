@@ -8,7 +8,9 @@ from django.db import transaction
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 
+from users.services import UserServices
 from .models import Project, UserProjectMapping, BackendAPIKey
 
 logger = logging.getLogger(__name__)
@@ -87,16 +89,23 @@ class ProjectCreateView(View):
     """
 
     def post(self, request, *args, **kwargs):
-        # TEMP: get hardcoded user
-        # DEV: get the dev user by username
-        try:
-            user = User.objects.get(username="")
-        except User.DoesNotExist:
-            logger.error("Dev user not found")
-            return JsonResponse(
-                {"status": 0, "status_description": "user_not_found"},
-                status=400,
-            )
+        # 1. Get Token from Header
+        token = request.META.get('HTTP_X_OTAS_USER_TOKEN')
+        
+        if not token:
+            return JsonResponse({
+                "status": 0, 
+                "status_description": "missing_token"
+            }, status=400)
+
+        # 2. Authenticate User (The real fix)
+        user = UserServices.get_user_from_token(token)
+        
+        if not user:
+            return JsonResponse({
+                "status": 0, 
+                "status_description": "invalid_token"
+            }, status=401)
 
 
         # Parse JSON body
@@ -167,6 +176,85 @@ class ProjectCreateView(View):
                 {"status": 0, "status_description": "project_creation_failed"},
                 status=500,
             )
+        
+@method_decorator(csrf_exempt, name='dispatch')
+class UserProjectAuthenticateViewV1(View):
+    """
+    API endpoint to authenticate user and project membership
+    POST /api/user-project/v1/authenticate/
+    Headers:
+        X-OTAS-USER-TOKEN: <jwt_token>
+        X-OTAS-PROJECT-ID: <project_uuid>
+    """
+
+    def post(self, request):
+        try:
+            # 1. Get Headers
+            token = request.META.get('HTTP_X_OTAS_USER_TOKEN')
+            project_id_str = request.META.get('HTTP_X_OTAS_PROJECT_ID')
+
+            # Validate Headers
+            if not token or not project_id_str:
+                return JsonResponse({
+                    'Status': 0,
+                    'Status Description': 'missing_headers',
+                    'Response': None
+                }, status=400)
+
+            # 2. Authenticate User (Using UserServices from users app)
+            user = UserServices.get_user_from_token(token)
+            
+            if not user:
+                return JsonResponse({
+                    'Status': 0,
+                    'Status Description': 'invalid_token',
+                    'Response': None
+                }, status=401)
+
+            # 3. Authenticate Project Mapping
+            try:
+                # Convert string to UUID to match your model
+                project_uuid = uuid.UUID(project_id_str)
+                
+                project = Project.objects.get(id=project_uuid)
+                mapping = UserProjectMapping.objects.get(user=user, project=project)
+
+                # 4. Success Response
+                return JsonResponse({
+                    'Status': 1,
+                    'Status Description': 'user_project_mapping_authenticated',
+                    'Response': {
+                        'UserProjectMapping': {
+                            'User': {
+                                'id': str(user.id),
+                                'first_name': user.first_name,
+                                'last_name': user.last_name,
+                                'email': user.email
+                            },
+                            'Project': {
+                                'project_id': str(project.id),
+                                'name': project.name
+                            },
+                            'Privilege': mapping.privilege
+                        }
+                    }
+                }, status=200)
+
+            except (ValueError, Project.DoesNotExist, UserProjectMapping.DoesNotExist):
+                # ValueError catches invalid UUID strings
+                return JsonResponse({
+                    'Status': 0,
+                    'Status Description': 'user_project_mapping_invalid',
+                    'Response': None
+                }, status=400)
+
+        except Exception as e:
+            logger.exception("Unexpected error in UserProjectAuthenticateViewV1")
+            return JsonResponse({
+                'Status': 0,
+                'Status Description': f'server_error: {str(e)}',
+                'Response': None
+            }, status=500)
 
 
 class BackendSDKKeyCreateView(View):
