@@ -5,9 +5,9 @@ from projects.models import Project, UserProjectMapping
 import uuid
 
 
-def user_auth_required(view_method):
-    @wraps(view_method)
-    def wrapper(self, request, *args, **kwargs):
+def user_auth_required(view_fuc):
+    @wraps(view_fuc)
+    def wrapper( request, *args, **kwargs):
         token = request.META.get('HTTP_X_OTAS_USER_TOKEN')
 
         if not token:
@@ -25,7 +25,7 @@ def user_auth_required(view_method):
             }, status=401)
 
         request.user = user
-        return view_method(self, request, *args, **kwargs)
+        return view_fuc( request, *args, **kwargs)
 
     return wrapper
 
