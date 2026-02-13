@@ -13,6 +13,10 @@ from django.utils.decorators import method_decorator
 from users.services import UserServices
 from .models import Project, UserProjectMapping, BackendAPIKey
 
+from decorators import user_auth_required
+from django.utils.decorators import method_decorator
+
+
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
@@ -80,6 +84,7 @@ def validate_backend_sdk_key_payload(payload: dict):
     return True, {"validity": validity}
 
 
+@method_decorator(user_auth_required, name='dispatch')
 class ProjectCreateView(View):
     """
     POST /api/project/v1/create/
@@ -89,18 +94,23 @@ class ProjectCreateView(View):
     """
 
     def post(self, request, *args, **kwargs):
-        # 1. Get Token from Header
-        token = request.META.get('HTTP_X_OTAS_USER_TOKEN')
+
+        # replace by the decorator
         
-        if not token:
-            return JsonResponse({
-                "status": 0, 
-                "status_description": "missing_token"
-            }, status=400)
+        # 1. Get Token from Header
+        # token = request.META.get('HTTP_X_OTAS_USER_TOKEN')
+        
+        # if not token:
+        #     return JsonResponse({
+        #         "status": 0, 
+        #         "status_description": "missing_token"
+        #     }, status=400)
 
         # 2. Authenticate User (The real fix)
-        user = UserServices.get_user_from_token(token)
+        # user = UserServices.get_user_from_token(token)
         
+        user = request.user
+
         if not user:
             return JsonResponse({
                 "status": 0, 
