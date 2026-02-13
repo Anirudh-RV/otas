@@ -84,6 +84,9 @@ class UserServices:
                         'first_name': user.first_name,
                         'middle_name': user.middle_name,
                         'last_name': user.last_name,
+                        'email': user.email,
+                        'created_at': user.created_at.isoformat(),
+                        'updated_at': user.updated_at.isoformat(),
                     },
                     'jwt_token': jwt_token
                 }

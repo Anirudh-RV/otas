@@ -5,7 +5,7 @@ export const GOVERNOR_ENDPOINT = "http://localhost:8008";
 export const SIGN_UP_V1_INIT_ENDPOINT = UASAM_ENDPOINT + "/api/user/v1/create/";
 
 export const USER_AUTHENTICATE_V1_ENDPOINT =
-  UASAM_ENDPOINT + "/v1/user/authenticate/";
+  UASAM_ENDPOINT + "/api/user/v1/authenticate/";
 
 export const USER_FIELDS_EDIT_V1_ENDPOINT = UASAM_ENDPOINT + "/v1/user/edit/";
 
