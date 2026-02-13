@@ -79,8 +79,9 @@ export default function SignInCard() {
     setIsSubmitting(true);
 
     const data = new FormData(event.currentTarget);
+
     const payload = {
-      email_id: data.get("email") as string,
+      email: data.get("email") as string,
       password: data.get("password") as string,
     };
 
@@ -93,17 +94,16 @@ export default function SignInCard() {
 
       const result = await res.json();
 
-      if (res.ok && result.status === 1) {
+      if (res.ok && result.status === 1 && result.response) {
         // Successful login
         setAuth(result.response.user, result.response.jwt_token);
         navigate("/dashboard");
       } else {
-        // Handle login error
         setPasswordError(true);
         setPasswordErrorMessage(
           result.status_description === "login_failed"
             ? "Incorrect email or password"
-            : "Login failed. Please try again.",
+            : result.status_description || "Login failed. Please try again.",
         );
       }
     } catch (err) {

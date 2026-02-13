@@ -11,6 +11,8 @@ TODO:
 
 > cd otas-frontend
 
+> npm i
+
 > npm run dev
 
 ## For building the Frontend

@@ -187,7 +187,6 @@ class ProjectCreateView(View):
                 status=500,
             )
         
-@method_decorator(csrf_exempt, name='dispatch')
 class UserProjectAuthenticateViewV1(View):
     """
     API endpoint to authenticate user and project membership

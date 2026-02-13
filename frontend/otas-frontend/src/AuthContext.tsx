@@ -2,13 +2,13 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { USER_AUTHENTICATE_V1_ENDPOINT } from "./constants";
 
 interface User {
-  ID: string;
-  FirstName: string;
-  MiddleName: string | null;
-  LastName: string;
-  EmailID: string;
-  CreatedAt: string;
-  UpdatedAt: string;
+  id: string;
+  first_name: string;
+  middle_name: string | null;
+  last_name: string;
+  email: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface AuthContextType {
@@ -40,13 +40,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const res = await fetch(USER_AUTHENTICATE_V1_ENDPOINT, {
         method: "POST",
         headers: {
-          USER_TOKEN: token,
+          "X-OTAS-USER-TOKEN": token,
         },
       });
 
       if (res.ok) {
         const data = await res.json();
-        const userFromApi = data.user;
+        const userFromApi = data.response_body.user;
 
         setUser(userFromApi);
         setAccessToken(token);

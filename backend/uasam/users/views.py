@@ -150,13 +150,18 @@ class UserAuthenticateViewV1(View):
             
             # 3. Success Response
             return JsonResponse({
-                'User': {
-                    'id': str(user.id),
-                    'first_name': user.first_name,
-                    'middle_name': user.middle_name,
-                    'last_name': user.last_name,
-                    'email': user.email,
-                    # Add other fields if needed
+                'status': 1,
+                'status_description': 'user_authenticated',
+                'response_body': {
+                    'user': {
+                        'id': str(user.id),
+                        'first_name': user.first_name,
+                        'middle_name': user.middle_name,
+                        'last_name': user.last_name,
+                        'email': user.email,
+                        'created_at': user.created_at.isoformat(),
+                        'updated_at': user.updated_at.isoformat(),
+                    }
                 }
             }, status=200)
 

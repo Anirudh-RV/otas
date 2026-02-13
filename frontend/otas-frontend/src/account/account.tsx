@@ -50,9 +50,9 @@ export default function Account(props: { disableCustomTheme?: boolean }) {
     window.scrollTo({ top: 0, behavior: "smooth" });
 
     if (user) {
-      setFirstName(user.FirstName);
-      setMiddleName(user.MiddleName ?? "");
-      setLastName(user.LastName);
+      setFirstName(user.first_name);
+      setMiddleName(user.middle_name ?? "");
+      setLastName(user.last_name);
     }
   }, [user]);
 
