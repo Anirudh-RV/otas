@@ -32,7 +32,7 @@ def user_auth_required(view_fuc):
 
 def user_project_auth_required(view_method):
     @wraps(view_method)
-    def wrapper(self, request, *args, **kwargs):
+    def wrapper(request, *args, **kwargs):
         token = request.META.get('HTTP_X_OTAS_USER_TOKEN')
         project_id_str = request.META.get('HTTP_X_OTAS_PROJECT_ID')
 
@@ -64,7 +64,7 @@ def user_project_auth_required(view_method):
         request.project = project
         request.privilege = mapping.privilege
 
-        return view_method(self, request, *args, **kwargs)
+        return view_method(request, *args, **kwargs)
 
     return wrapper
 

@@ -2,11 +2,10 @@
 import uuid
 import secrets
 from django.db import models
-from django.conf import settings
 from django.utils import timezone
 from django.contrib.auth.hashers import make_password, check_password
+from users.models import User
 
-User = settings.AUTH_USER_MODEL  # string; use get_user_model() in other modules if needed
 
 class Project(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

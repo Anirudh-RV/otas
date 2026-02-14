@@ -13,7 +13,7 @@ from django.utils.decorators import method_decorator
 from users.services import UserServices
 from .models import Project, UserProjectMapping, BackendAPIKey
 
-from decorators import user_auth_required
+from decorators import user_auth_required, user_project_auth_required
 from django.utils.decorators import method_decorator
 
 
@@ -265,7 +265,7 @@ class UserProjectAuthenticateViewV1(View):
                 'Response': None
             }, status=500)
 
-
+@method_decorator(user_project_auth_required, name='dispatch')
 class BackendSDKKeyCreateView(View):
     """
     POST /api/project/v1/sdk/backend/key/create/
@@ -273,27 +273,18 @@ class BackendSDKKeyCreateView(View):
     Create a new backend SDK API key for a project.
     
     Headers:
+    - X-OTAS-USER-TOKEN: User JWT token
     - X-OTAS-PROJECT-ID: Project UUID
     
     Body: { "validity": 30 } (days, max 300)
     
     Response: API key details (raw key shown ONLY ONCE)
-    
-    NOTE: Authentication will be added via decorators
     """
-
-    @csrf_exempt
     def post(self, request, *args, **kwargs):
-        # TEMP: get hardcoded user
-        # Later: will be provided by auth decorator
-        try:
-            user = User.objects.get(username="")
-        except User.DoesNotExist:
-            logger.error("Dev user not found")
-            return JsonResponse(
-                {"status": 0, "status_description": "user_not_found"},
-                status=400,
-            )
+        # User and Project are set by user_project_auth_required decorator
+        user = request.user
+        project = request.project
+        privilege = request.privilege
 
         # Parse JSON body
         try:
@@ -306,29 +297,6 @@ class BackendSDKKeyCreateView(View):
                     "status_description": "sdk_key_creation_failed"
                 },
                 status=400
-            )
-
-        # Get project_id from header
-        project_id = request.META.get('HTTP_X_OTAS_PROJECT_ID')
-        if not project_id:
-            return JsonResponse(
-                {
-                    "status": 0,
-                    "status_description": "missing_project_id_header"
-                },
-                status=400
-            )
-
-        try:
-            project = Project.objects.get(id=project_id)
-        except Project.DoesNotExist:
-            logger.warning(f"Project not found for ID: {project_id}")
-            return JsonResponse(
-                {
-                    "status": 0,
-                    "status_description": "project_not_found"
-                },
-                status=404
             )
 
         # Validate request payload
