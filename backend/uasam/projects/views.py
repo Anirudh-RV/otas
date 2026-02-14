@@ -6,8 +6,6 @@ from django.http import JsonResponse, HttpResponseBadRequest
 from django.views import View
 from django.db import transaction
 from django.utils import timezone
-from django.contrib.auth import get_user_model
-from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 
 from users.services import UserServices
@@ -18,7 +16,6 @@ from django.utils.decorators import method_decorator
 
 
 logger = logging.getLogger(__name__)
-User = get_user_model()
 
 
 def validate_create_project_payload(payload: dict):
