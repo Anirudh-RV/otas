@@ -1,9 +1,8 @@
 from functools import wraps
 from django.http import JsonResponse
 from users.services import UserServices
-from projects.models import Project, UserProjectMapping
+from projects.models import Project, UserProjectMapping, BackendAPIKey 
 import uuid
-
 
 def user_auth_required(view_fuc):
     @wraps(view_fuc)
@@ -68,3 +67,36 @@ def user_project_auth_required(view_method):
 
     return wrapper
 
+
+def sdk_authenticator(view_func):
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        full_key = request.headers.get("X-OTAS-SDK-KEY")
+        if not full_key:
+            return JsonResponse({"error": "SDK Key missing"}, status=401)
+
+        try:
+            parts = full_key.split('_', 2)
+            if len(parts) != 3:
+                return JsonResponse({"error": "Invalid Key Format"}, status=403)
+            prefix_candidate = parts[1]
+            secret_part = parts[2]
+
+            key_qs = BackendAPIKey.objects.filter(active=True)
+            matched_key = None
+            for key_obj in key_qs:
+                if key_obj.verify_key(full_key):
+                    matched_key = key_obj
+                    break
+
+            if not matched_key:
+                return JsonResponse({"error": "Invalid SDK Key"}, status=403)
+
+            request.project = matched_key.project
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+        return view_func(request, *args, **kwargs)
+
+    return wrapper

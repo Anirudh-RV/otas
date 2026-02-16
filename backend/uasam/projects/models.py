@@ -6,6 +6,9 @@ from django.utils import timezone
 from django.contrib.auth.hashers import make_password, check_password
 from users.models import User
 
+def generate_sdk_key():
+    return uuid.uuid4().hex
+
 
 class Project(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -15,6 +18,14 @@ class Project(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
     created_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name='created_projects')
+    sdk_key = models.CharField(
+    max_length=64,
+    unique=True,
+    default=generate_sdk_key,
+    editable=False
+)
+
+
 
     class Meta:
         db_table = 'project'
@@ -60,8 +71,8 @@ class BackendAPIKey(models.Model):
     Keys are hashed in the database for security.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    prefix = models.CharField(max_length=255, db_index=True)  # Key prefix for identification
-    hashed_key = models.TextField()  # Hashed full key
+    prefix = models.CharField(max_length=255, db_index=True) 
+    hashed_key = models.TextField()
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='api_keys')
     name = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
