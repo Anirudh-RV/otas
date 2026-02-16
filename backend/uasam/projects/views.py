@@ -11,12 +11,11 @@ from django.utils.decorators import method_decorator
 from users.services import UserServices
 from .models import Project, UserProjectMapping, BackendAPIKey
 
-from decorators import user_auth_required, user_project_auth_required
+from decorators import user_auth_required, user_project_auth_required, sdk_authenticator
 from django.utils.decorators import method_decorator
 
 
 logger = logging.getLogger(__name__)
-
 
 def validate_create_project_payload(payload: dict):
     """
@@ -355,3 +354,19 @@ class BackendSDKKeyCreateView(View):
                 },
                 status=500
             )
+@method_decorator(sdk_authenticator, name='dispatch')
+class BackendSDKAuthenticateView(View):
+    def post(self, request, *args, **kwargs):
+        project = request.project 
+        
+        return JsonResponse({
+            "Status": 1,
+            "Status Description": "authenticated",
+            "Response": {
+                "PROJECT": {
+                    "id": str(project.id),
+                    "name": project.name,
+                    "description": project.description,
+                }
+            }
+        }, status=200)
