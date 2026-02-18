@@ -14,7 +14,7 @@ class Agent(models.Model):
 	name = models.TextField()
 	description = models.TextField(blank=True)
 	provider = models.TextField(blank=True, db_index=True)
-	project = models.ForeignKey('uasam.projects.Project', on_delete=models.CASCADE, related_name='agents')
+	project = models.ForeignKey('projects.Project', on_delete=models.CASCADE, related_name='agents')
 	created_at = models.DateTimeField(default=timezone.now)
 	updated_at = models.DateTimeField(auto_now=True)
 	created_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name='created_agents')
@@ -72,7 +72,7 @@ class AgentKey(models.Model):
 			return False
 		return check_password(full_key, self.hashed_key)
 
-\
+
 class AgentSession(models.Model):
 	id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 	agent = models.ForeignKey(Agent, on_delete=models.CASCADE, related_name='sessions')
