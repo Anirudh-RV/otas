@@ -5,8 +5,9 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from django.contrib.auth.hashers import make_password, check_password
+from users.models import User
 
-User = settings.AUTH_USER_MODEL
+# User = settings.AUTH_USER_MODEL
 
 
 class Agent(models.Model):

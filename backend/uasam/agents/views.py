@@ -1,12 +1,119 @@
 import json
 import jwt
+import logging
 from datetime import datetime, timedelta
 from django.http import JsonResponse
 from django.views import View
+from django.db import transaction
+from django.shortcuts import render
+from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.shortcuts import render
 
-from decorators import agent_authenticator
+from decorators import agent_authenticator, user_project_auth_required
 from users.constants import JWT_SECRET
-from .models import AgentSession
+from .models import AgentSession, Agent, AgentKey
+from projects.models import UserProjectMapping
+
+@method_decorator(user_project_auth_required, name='dispatch')
+class AgentCreateView(View):
+
+    def post(self, request, *args, **kwargs):
+
+        user = request.user
+        project = request.project
+        privilege = request.privilege
+
+        # Optional but recommended: Only Admin can create agent
+        if privilege != UserProjectMapping.PRIVILEGE_ADMIN:
+            return JsonResponse({
+                "status": 0,
+                "status_description": "forbidden"
+            }, status=403)
+
+        try:
+            body = json.loads(request.body or "{}")
+        except json.JSONDecodeError:
+            print("Invalid JSON in request body")
+            return JsonResponse({
+                "status": 0,
+                "status_description": "agent_creation_failed"
+            }, status=400)
+
+        name = body.get("Name")
+        description = body.get("Description", "")
+        provider = body.get("Provider")
+
+        if not name or not provider:
+            print("Missing required fields: Name and Provider")
+            return JsonResponse({
+                "status": 0,
+                "status_description": "agent_creation_failed"
+            }, status=400)
+
+        try:
+            with transaction.atomic():
+                print("User:", user)
+
+                # 1️⃣ Create Agent
+                agent = Agent.objects.create(
+                    name=name.strip(),
+                    description=description.strip(),
+                    provider=provider.strip(),
+                    project=project,
+                    created_by=user,
+                    created_at=timezone.now(),
+                )
+
+                # 2️⃣ Create AgentKey (copying BackendSDK logic)
+                full_key, prefix = AgentKey.generate_key()
+
+                expires_at = timezone.now() + timezone.timedelta(days=30)
+
+                agent_key = AgentKey.objects.create(
+                    prefix=prefix,
+                    agent=agent,
+                    created_at=timezone.now(),
+                    expires_at=expires_at,
+                    active=True
+                )
+
+                agent_key.hash_key(full_key)
+                agent_key.save()
+
+            # 3️⃣ Return Response (raw key only once)
+            return JsonResponse({
+                "status": 1,
+                "status_description": "agent_created",
+                "response": {
+                    "agent": {
+                        "id": str(agent.id),
+                        "name": agent.name,
+                        "description": agent.description,
+                        "provider": agent.provider,
+                        "project_id": str(project.id),
+                        "created_by": str(user.id),
+                        "created_at": agent.created_at.isoformat(),
+                    },
+                    "agent_key": {
+                        "id": str(agent_key.id),
+                        "prefix": agent_key.prefix,
+                        "api_key": full_key,  # IMPORTANT: show raw only here
+                        "agent_id": str(agent.id),
+                        "created_at": agent_key.created_at.isoformat(),
+                        "expires_at": agent_key.expires_at.isoformat(),
+                        "active": agent_key.active
+                    }
+                }
+            }, status=201)
+
+        except Exception:
+            logger.exception("Agent creation failed")
+            print("Exception during agent creation")
+            return JsonResponse({
+                "status": 0,
+                "status_description": "agent_creation_failed"
+            }, status=400)
 
 
 class CreateAgentSessionViewV1(View):
@@ -58,3 +165,4 @@ class CreateAgentSessionViewV1(View):
                 "status": 0,
                 "status_description": f"server_error: {str(e)}"
             }, status=500)
+
