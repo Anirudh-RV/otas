@@ -15,16 +15,32 @@ from users.constants import JWT_SECRET
 from .models import AgentSession, Agent, AgentKey
 from projects.models import UserProjectMapping
 
+logger = logging.getLogger(__name__)
+
+
 @method_decorator(user_project_auth_required, name='dispatch')
 class AgentCreateView(View):
+    """
+    POST /api/agent/v1/create/
+    
+    Create a new Agent and Agent SDK key for a project.
+    
+    Headers:
+    - X-OTAS-USER-TOKEN: User JWT token
+    - X-OTAS-PROJECT-ID: Project UUID
+    
+    Body: {
+            "agnet_name": "backend agent",
+            "agent_description": "Does some xyz on some abc",
+            "agent_provider": "Anthropic"
+            }
 
+    """
     def post(self, request, *args, **kwargs):
-
         user = request.user
         project = request.project
         privilege = request.privilege
 
-        # Optional but recommended: Only Admin can create agent
         if privilege != UserProjectMapping.PRIVILEGE_ADMIN:
             return JsonResponse({
                 "status": 0,
@@ -40,9 +56,9 @@ class AgentCreateView(View):
                 "status_description": "agent_creation_failed"
             }, status=400)
 
-        name = body.get("Name")
-        description = body.get("Description", "")
-        provider = body.get("Provider")
+        name = body.get("agent_name")
+        description = body.get("agent_description", "")
+        provider = body.get("agent_provider")
 
         if not name or not provider:
             print("Missing required fields: Name and Provider")
@@ -55,7 +71,6 @@ class AgentCreateView(View):
             with transaction.atomic():
                 print("User:", user)
 
-                # 1️⃣ Create Agent
                 agent = Agent.objects.create(
                     name=name.strip(),
                     description=description.strip(),
@@ -65,7 +80,6 @@ class AgentCreateView(View):
                     created_at=timezone.now(),
                 )
 
-                # 2️⃣ Create AgentKey (copying BackendSDK logic)
                 full_key, prefix = AgentKey.generate_key()
 
                 expires_at = timezone.now() + timezone.timedelta(days=30)
@@ -81,7 +95,6 @@ class AgentCreateView(View):
                 agent_key.hash_key(full_key)
                 agent_key.save()
 
-            # 3️⃣ Return Response (raw key only once)
             return JsonResponse({
                 "status": 1,
                 "status_description": "agent_created",
@@ -98,7 +111,7 @@ class AgentCreateView(View):
                     "agent_key": {
                         "id": str(agent_key.id),
                         "prefix": agent_key.prefix,
-                        "api_key": full_key,  # IMPORTANT: show raw only here
+                        "api_key": full_key,  
                         "agent_id": str(agent.id),
                         "created_at": agent_key.created_at.isoformat(),
                         "expires_at": agent_key.expires_at.isoformat(),
@@ -115,7 +128,7 @@ class AgentCreateView(View):
                 "status_description": "agent_creation_failed"
             }, status=400)
 
-
+@method_decorator(agent_authenticator, name='dispatch')
 class CreateAgentSessionViewV1(View):
     """
     POST /api/agent/v1/session/create
@@ -123,8 +136,7 @@ class CreateAgentSessionViewV1(View):
     Body: {"Meta": {...}}
     """
 
-    @agent_authenticator
-    def post(self, request):
+    def post(self, request, *args, **kwargs):
         try:
             body = json.loads(request.body) if request.body else {}
         except json.JSONDecodeError:
