@@ -2,6 +2,7 @@ from functools import wraps
 from django.http import JsonResponse
 from users.services import UserServices
 from projects.models import Project, UserProjectMapping, BackendAPIKey 
+from agents.models import AgentKey
 import uuid
 
 def user_auth_required(view_fuc):
@@ -96,6 +97,53 @@ def sdk_authenticator(view_func):
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
+
+        return view_func(request, *args, **kwargs)
+
+    return wrapper
+
+
+def agent_authenticator(view_func):
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        full_key = request.headers.get("X-OTAS-AGENT-KEY")
+        if not full_key:
+            return JsonResponse({
+                "status": 0,
+                "status_description": "invalid_agent_key"
+            }, status=401)
+
+        try:
+            parts = full_key.split("_", 2)
+            if len(parts) != 3 or parts[0] != "agent":
+                return JsonResponse({
+                    "status": 0,
+                    "status_description": "invalid_agent_key"
+                }, status=401)
+
+            prefix = parts[1]
+            key_qs = AgentKey.objects.filter(active=True, prefix=prefix).select_related("agent")
+
+            matched_key = None
+            for key_obj in key_qs:
+                if key_obj.verify_key(full_key):
+                    matched_key = key_obj
+                    break
+
+            if not matched_key:
+                return JsonResponse({
+                    "status": 0,
+                    "status_description": "invalid_agent_key"
+                }, status=401)
+
+            request.agent = matched_key.agent
+            request.agent_key = matched_key
+
+        except Exception:
+            return JsonResponse({
+                "status": 0,
+                "status_description": "invalid_agent_key"
+            }, status=401)
 
         return view_func(request, *args, **kwargs)
 
