@@ -22,5 +22,6 @@ urlpatterns = [
     path('api/user/', include('users.urls')),
     path('api/project/', include('projects.urls')),
     path('api/user-project/', include('projects.urls')), # Might not need this?
+    path('api/agent/', include('agents.urls')),
 
 ]

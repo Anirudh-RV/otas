@@ -159,6 +159,7 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
     'X-OTAS-USER-TOKEN',
+    'X-OTAS-AGENT-KEY',
     'X-OTAS-AGENT-SESSION-KEY',
     'X-OTAS-SDK-KEY',
 ]
