@@ -6,8 +6,6 @@ from django.utils import timezone
 from django.contrib.auth.hashers import make_password, check_password
 from users.models import User
 
-def generate_sdk_key():
-    return uuid.uuid4().hex
 
 
 class Project(models.Model):
@@ -18,14 +16,6 @@ class Project(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
     created_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name='created_projects')
-    sdk_key = models.CharField(
-    max_length=64,
-    unique=True,
-    default=generate_sdk_key,
-    editable=False
-)
-
-
 
     class Meta:
         db_table = 'project'
@@ -62,7 +52,7 @@ class UserProjectMapping(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.user_id} -> {self.project_id} ({self.privilege})"
+        return f"{self.user_id} -> {self.project_id} ({self.privilege})" # type: ignore
 
 
 class BackendAPIKey(models.Model):

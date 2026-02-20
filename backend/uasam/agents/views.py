@@ -69,7 +69,6 @@ class AgentCreateView(View):
 
         try:
             with transaction.atomic():
-                print("User:", user)
 
                 agent = Agent.objects.create(
                     name=name.strip(),
@@ -114,7 +113,7 @@ class AgentCreateView(View):
                         "api_key": full_key,  
                         "agent_id": str(agent.id),
                         "created_at": agent_key.created_at.isoformat(),
-                        "expires_at": agent_key.expires_at.isoformat(),
+                        "expires_at": agent_key.expires_at.isoformat(), # type: ignore
                         "active": agent_key.active
                     }
                 }
@@ -133,7 +132,7 @@ class CreateAgentSessionViewV1(View):
     """
     POST /api/agent/v1/session/create
     Header: X-OTAS-AGENT-KEY
-    Body: {"Meta": {...}}
+    Body: {"meta": {...}}
     """
 
     def post(self, request, *args, **kwargs):
@@ -145,7 +144,7 @@ class CreateAgentSessionViewV1(View):
                 "status_description": "invalid_json"
             }, status=400)
 
-        meta = body.get("Meta", {})
+        meta = body.get("meta", {})
         if meta is None:
             meta = {}
 

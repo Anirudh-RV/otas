@@ -7,8 +7,6 @@ from django.utils import timezone
 from django.contrib.auth.hashers import make_password, check_password
 from users.models import User
 
-# User = settings.AUTH_USER_MODEL
-
 
 class Agent(models.Model):
 	id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -88,4 +86,4 @@ class AgentSession(models.Model):
 		]
 
 	def __str__(self):
-		return f"session {self.id} - agent {self.agent_id}"
+		return f"session {self.id} - agent {self.agent_id}" # type: ignore
