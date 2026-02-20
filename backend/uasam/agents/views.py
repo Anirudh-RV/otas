@@ -114,7 +114,7 @@ class AgentCreateView(View):
                         "api_key": full_key,  
                         "agent_id": str(agent.id),
                         "created_at": agent_key.created_at.isoformat(),
-                        "expires_at": agent_key.expires_at.isoformat(),
+                        "expires_at": agent_key.expires_at.isoformat(), # type: ignore
                         "active": agent_key.active
                     }
                 }

@@ -10,49 +10,12 @@ from django.utils.decorators import method_decorator
 
 from users.services import UserServices
 from .models import Project, UserProjectMapping, BackendAPIKey
-
+from .utils import ProjectUtils
 from decorators import user_auth_required, user_project_auth_required, sdk_authenticator
 from django.utils.decorators import method_decorator
 
 
 logger = logging.getLogger(__name__)
-
-def validate_create_project_payload(payload: dict):
-    """
-    Inline validator for create project request payload.
-    Returns (is_valid: bool, data_or_errors: dict)
-    """
-    errors = []
-    if not isinstance(payload, dict):
-        return False, {"errors": ["invalid_json"]}
-
-    # project_name
-    name = payload.get("project_name")
-    if name is None:
-        errors.append("project_name is required")
-    else:
-        if not isinstance(name, str):
-            errors.append("project_name must be a string")
-        else:
-            name = name.strip()
-            if not name:
-                errors.append("project_name is required")
-            elif len(name) > 255:
-                errors.append("project_name too long (max 255)")
-
-    # project_description (optional)
-    desc = payload.get("project_description", "")
-    if desc is None:
-        desc = ""
-    if not isinstance(desc, str):
-        errors.append("project_description must be a string")
-    elif len(desc) > 300:
-        errors.append("project_description max 300 characters")
-
-    if errors:
-        return False, {"errors": errors}
-
-    return True, {"project_name": name, "project_description": desc}
 
 
 def validate_backend_sdk_key_payload(payload: dict):
@@ -129,7 +92,7 @@ class ProjectCreateView(View):
         logger.info("Request body: %s", body)
 
         # Validate payload
-        is_valid, result = validate_create_project_payload(body)
+        is_valid, result = ProjectUtils.validate_create_project_payload(body)
         if not is_valid:
             # 🔹 Log validation errors
             logger.info("Project creation validation failed: %s", result["errors"])
@@ -201,8 +164,8 @@ class UserProjectAuthenticateViewV1(View):
             # Validate Headers
             if not token or not project_id_str:
                 return JsonResponse({
-                    'Status': 0,
-                    'Status Description': 'missing_headers',
+                    'status': 0,
+                    'status_description': 'missing_headers',
                     'Response': None
                 }, status=400)
 
@@ -211,8 +174,8 @@ class UserProjectAuthenticateViewV1(View):
             
             if not user:
                 return JsonResponse({
-                    'Status': 0,
-                    'Status Description': 'invalid_token',
+                    'status': 0,
+                    'status_description': 'invalid_token',
                     'Response': None
                 }, status=401)
 
@@ -226,8 +189,8 @@ class UserProjectAuthenticateViewV1(View):
 
                 # 4. Success Response
                 return JsonResponse({
-                    'Status': 1,
-                    'Status Description': 'user_project_mapping_authenticated',
+                    'status': 1,
+                    'status_description': 'user_project_mapping_authenticated',
                     'Response': {
                         'UserProjectMapping': {
                             'User': {
@@ -248,16 +211,16 @@ class UserProjectAuthenticateViewV1(View):
             except (ValueError, Project.DoesNotExist, UserProjectMapping.DoesNotExist):
                 # ValueError catches invalid UUID strings
                 return JsonResponse({
-                    'Status': 0,
-                    'Status Description': 'user_project_mapping_invalid',
+                    'status': 0,
+                    'status_description': 'user_project_mapping_invalid',
                     'Response': None
                 }, status=400)
 
         except Exception as e:
             logger.exception("Unexpected error in UserProjectAuthenticateViewV1")
             return JsonResponse({
-                'Status': 0,
-                'Status Description': f'server_error: {str(e)}',
+                'status': 0,
+                'status_description': f'server_error: {str(e)}',
                 'Response': None
             }, status=500)
 
@@ -314,7 +277,7 @@ class BackendSDKKeyCreateView(View):
         try:
             with transaction.atomic():
                 full_key, prefix = BackendAPIKey.generate_key()
-                expires_at = timezone.now() + timezone.timedelta(days=validity_days)
+                expires_at = timezone.now() + timezone.timedelta(days=validity_days) # type: ignore
                 api_key = BackendAPIKey.objects.create(
                     prefix=prefix,
                     project=project,
@@ -329,7 +292,7 @@ class BackendSDKKeyCreateView(View):
                     'id': str(api_key.id),
                     'prefix': api_key.prefix,
                     'api_key': full_key,  # Raw key - shown only once
-                    'project_id': str(api_key.project_id),
+                    'project_id': str(api_key.project_id), # type: ignore
                     'name': api_key.name,
                     'created_at': api_key.created_at.isoformat(),
                     'expires_at': api_key.expires_at.isoformat() if api_key.expires_at else None,
@@ -354,16 +317,18 @@ class BackendSDKKeyCreateView(View):
                 },
                 status=500
             )
+            
+            
 @method_decorator(sdk_authenticator, name='dispatch')
 class BackendSDKAuthenticateView(View):
     def post(self, request, *args, **kwargs):
         project = request.project 
         
         return JsonResponse({
-            "Status": 1,
-            "Status Description": "authenticated",
-            "Response": {
-                "PROJECT": {
+            "status": 1,
+            "status_description": "authenticated",
+            "response": {
+                "project": {
                     "id": str(project.id),
                     "name": project.name,
                     "description": project.description,
