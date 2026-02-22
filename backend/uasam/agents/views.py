@@ -10,6 +10,7 @@ from django.shortcuts import render
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.shortcuts import render
+from django.core.exceptions import ValidationError
 
 from decorators import agent_authenticator, user_project_auth_required
 from users.constants import JWT_SECRET
@@ -346,7 +347,8 @@ class AgentKeyCreateView(View):
             agent = Agent.objects.get(id=agent_id, project=project, is_active=True)
             
             with transaction.atomic():
-                AgentKey.objects.filter(agent=agent, active=True).update(active=False, revoked_at=timezone.now())
+                # Revoke existing key
+                #AgentKey.objects.filter(agent=agent, active=True).update(active=False, revoked_at=timezone.now())
 
                 full_key, prefix = AgentKey.generate_key()
                 expires_at = timezone.now() + timezone.timedelta(days=30)
@@ -377,11 +379,10 @@ class AgentKeyCreateView(View):
                     }
                 }
             }, status=201)
-
-        except Agent.DoesNotExist:
+        except (Agent.DoesNotExist, ValidationError, ValueError):
             return JsonResponse({
-                "status": 0,
-                "status_description": "agent_not_found_or_no_access"
+                "status": 0, 
+                "status_description": "agent_not_found_or_invalid_id"
             }, status=404)
         except Exception as e:
             logger.exception("Agent key creation failed")
