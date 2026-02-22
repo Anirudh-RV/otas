@@ -1,6 +1,7 @@
 import json
 import jwt
 import logging
+import uuid
 from datetime import datetime, timedelta
 from django.http import JsonResponse
 from django.views import View
@@ -177,3 +178,125 @@ class CreateAgentSessionViewV1(View):
                 "status_description": f"server_error: {str(e)}"
             }, status=500)
 
+@method_decorator(user_project_auth_required, name='dispatch')
+class AgentListView(View):
+    """
+    POST /api/agent/v1/list/
+
+    Headers:
+        X-OTAS-USER-TOKEN
+        X-OTAS-PROJECT-ID
+    """
+
+    def post(self, request, *args, **kwargs):
+        project = request.project
+
+        agents = (
+            Agent.objects
+            .filter(project=project, is_active=True)
+            .prefetch_related("keys")
+        )
+
+        agent_list = []
+
+        for agent in agents:
+            keys = agent.keys.filter(active=True)
+
+            key_data = []
+            for key in keys:
+                key_data.append({
+                    "id": str(key.id),
+                    "prefix": key.prefix,
+                    "name": key.name,
+                    "created_at": key.created_at.isoformat(),
+                    "expires_at": key.expires_at.isoformat() if key.expires_at else None,
+                    "active": key.active,
+                })
+
+            agent_list.append({
+                "id": str(agent.id),
+                "name": agent.name,
+                "description": agent.description,
+                "provider": agent.provider,
+                "created_at": agent.created_at.isoformat(),
+                "created_by": str(agent.created_by_id),
+                "is_active": agent.is_active,
+                "agent_keys": key_data,
+            })
+
+        return JsonResponse({
+            "status": 1,
+            "status_description": "agents_listed",
+            "response": {
+                "project_id": str(project.id),
+                "agents": agent_list
+            }
+        }, status=200)
+
+@method_decorator(user_project_auth_required, name='dispatch')
+class AgentSessionListView(View):
+    """
+    POST /api/agent/v1/sessions/list/
+
+    Body:
+    {
+        "agent_id": "<uuid>"
+    }
+    """
+
+    def post(self, request, *args, **kwargs):
+        project = request.project
+
+        try:
+            body = json.loads(request.body or "{}")
+        except json.JSONDecodeError:
+            return JsonResponse({
+                "status": 0,
+                "status_description": "invalid_json"
+            }, status=400)
+
+        agent_id = body.get("agent_id")
+        if not agent_id:
+            return JsonResponse({
+                "status": 0,
+                "status_description": "agent_id_required"
+            }, status=400)
+
+        try:
+            agent_uuid = uuid.UUID(agent_id)
+            agent = Agent.objects.get(
+                id=agent_uuid,
+                project=project,
+                is_active=True
+            )
+        except (ValueError, Agent.DoesNotExist):
+            return JsonResponse({
+                "status": 0,
+                "status_description": "agent_not_found_or_no_access"
+            }, status=403)
+
+        sessions = (
+            AgentSession.objects
+            .filter(agent=agent)
+            .select_related("agent_key")
+            .order_by("-created_at")
+        )
+
+        session_list = []
+
+        for session in sessions:
+            session_list.append({
+                "id": str(session.id),
+                "agent_key_id": str(session.agent_key_id) if session.agent_key else None,
+                "created_at": session.created_at.isoformat(),
+                "meta": session.meta,
+            })
+
+        return JsonResponse({
+            "status": 1,
+            "status_description": "agent_sessions_listed",
+            "response": {
+                "agent_id": str(agent.id),
+                "sessions": session_list
+            }
+        }, status=200)
