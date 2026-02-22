@@ -300,3 +300,92 @@ class AgentSessionListView(View):
                 "sessions": session_list
             }
         }, status=200)
+    
+@method_decorator(user_project_auth_required, name='dispatch')
+class AgentKeyCreateView(View):
+    """
+    POST /api/agent/v1/agents/key/create/
+    
+    Generate a new SDK key for an existing Agent.
+    
+    Headers:
+    - X-OTAS-USER-TOKEN: User JWT token
+    - X-OTAS-PROJECT-ID: Project UUID
+    
+    Body: { "agent_id": "<uuid>" }
+    """
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        project = request.project
+        privilege = request.privilege
+
+        # Ensure only admins can create/renew keys
+        if privilege != UserProjectMapping.PRIVILEGE_ADMIN:
+            return JsonResponse({
+                "status": 0,
+                "status_description": "forbidden"
+            }, status=403)
+
+        try:
+            body = json.loads(request.body or "{}")
+            agent_id = body.get("agent_id")
+        except json.JSONDecodeError:
+            return JsonResponse({
+                "status": 0,
+                "status_description": "invalid_json"
+            }, status=400)
+
+        if not agent_id:
+            return JsonResponse({
+                "status": 0,
+                "status_description": "agent_id_required"
+            }, status=400)
+
+        try:
+            # Verify the agent exists and belongs to the project
+            agent = Agent.objects.get(id=agent_id, project=project, is_active=True)
+            
+            with transaction.atomic():
+                AgentKey.objects.filter(agent=agent, active=True).update(active=False, revoked_at=timezone.now())
+
+                full_key, prefix = AgentKey.generate_key()
+                expires_at = timezone.now() + timezone.timedelta(days=30)
+
+                agent_key = AgentKey.objects.create(
+                    prefix=prefix,
+                    agent=agent,
+                    created_at=timezone.now(),
+                    expires_at=expires_at,
+                    active=True
+                )
+
+                agent_key.hash_key(full_key)
+                agent_key.save()
+
+            return JsonResponse({
+                "status": 1,
+                "status_description": "agent_key_created",
+                "response": {
+                    "agent_id": str(agent.id),
+                    "agent_key": {
+                        "id": str(agent_key.id),
+                        "prefix": agent_key.prefix,
+                        "api_key": full_key,
+                        "created_at": agent_key.created_at.isoformat(),
+                        "expires_at": agent_key.expires_at.isoformat(),
+                        "active": agent_key.active
+                    }
+                }
+            }, status=201)
+
+        except Agent.DoesNotExist:
+            return JsonResponse({
+                "status": 0,
+                "status_description": "agent_not_found_or_no_access"
+            }, status=404)
+        except Exception as e:
+            logger.exception("Agent key creation failed")
+            return JsonResponse({
+                "status": 0,
+                "status_description": "server_error"
+            }, status=500)
