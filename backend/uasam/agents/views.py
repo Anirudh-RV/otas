@@ -390,3 +390,44 @@ class AgentKeyCreateView(View):
                 "status": 0,
                 "status_description": "server_error"
             }, status=500)
+        
+@method_decorator(agent_authenticator, name='dispatch')
+class AgentAuthVerifyView(View):
+    """
+    POST /api/agent/v1/auth/verify/
+    
+    Validates an Agent Key and returns the associated Project and Agent info.
+    Mirroring the behavior of the SDK authenticator.
+    
+    Header:
+    - X-OTAS-AGENT-KEY: agent_prefix_secret
+    
+    Body: {} (Matches the SDK style where the key is in the header)
+    """
+    def post(self, request, *args, **kwargs):
+        # request.agent and request.agent_key are populated by agent_authenticator
+        agent = request.agent
+        
+        try:
+            # Retrieve the project ID associated with this agent
+            project_id = str(agent.project_id)
+            
+            return JsonResponse({
+                "status": 1,
+                "status_description": "authenticated",
+                "response": {
+                    "project_id": project_id,
+                    "agent": {
+                        "id": str(agent.id),
+                        "name": agent.name,
+                        "provider": agent.provider
+                    },
+                }
+            }, status=200)
+            
+        except Exception as e:
+            logger.exception("Agent auth verification failed")
+            return JsonResponse({
+                "status": 0,
+                "status_description": "verification_failed"
+            }, status=500)
