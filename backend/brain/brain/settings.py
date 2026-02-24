@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'events',
 ]
 
 MIDDLEWARE = [
@@ -141,3 +142,6 @@ CACHES = {
 
 
 ALLOWED_HOSTS = ['*']
+
+# JWT
+JWT_SECRET = os.getenv('JWT_SECRET', 'some-jwt-secret')
