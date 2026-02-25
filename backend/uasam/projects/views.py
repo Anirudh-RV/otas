@@ -81,6 +81,7 @@ class ProjectCreateView(View):
 
             project_name = result.get("project_name")
             project_description = result.get("project_description", "")
+            project_domain = result.get("project_domain", "")
 
             if not project_name:
                 logger.warning("Validation returned no project_name")
@@ -102,10 +103,10 @@ class ProjectCreateView(View):
         try:
             with transaction.atomic():
                 project = Project.objects.create(
-                    name=project_name.strip(),
-                    description=project_description.strip(),
+                    name=project_name.strip(), # type: ignore
+                    description=project_description.strip(), # type: ignore
+                    domain=project_domain,
                     created_by=user,
-                    created_at=timezone.now(),
                 )
                 UserProjectMapping.objects.create(
                     user=user,
@@ -124,7 +125,8 @@ class ProjectCreateView(View):
                     "project": {
                         "id": str(project.id),
                         "name": project.name,
-                        "description": project.description
+                        "description": project.description,
+                        "domain": project.domain,
                     }
                 }
             }, status=201)
@@ -336,7 +338,7 @@ class ProjectListView(View):
         X-OTAS-USER-TOKEN: <jwt>
     """
 
-    def post(self, request, *args, **kwargs):
+    def get(self, request, *args, **kwargs):
         user = request.user
 
         try:
@@ -355,10 +357,11 @@ class ProjectListView(View):
                     "id": str(project.id),
                     "name": project.name,
                     "description": project.description,
+                    "domain": project.domain,
                     "created_at": project.created_at.isoformat(),
                     "updated_at": project.updated_at.isoformat(),
                     "is_active": project.is_active,
-                    "created_by": str(project.created_by_id),
+                    "created_by": str(project.created_by_id), # type: ignore
                     "privilege": mapping.privilege,
                 })
 

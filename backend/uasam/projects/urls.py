@@ -7,5 +7,5 @@ urlpatterns = [
     path('v1/sdk/backend/key/create/', csrf_exempt(BackendSDKKeyCreateView.as_view()), name='sdk-key-create'),
     path('v1/authenticate/', csrf_exempt(UserProjectAuthenticateViewV1.as_view()), name='user-project-authenticate'),
     path('v1/sdk/backend/key/authenticate/', csrf_exempt(BackendSDKAuthenticateView.as_view()), name='sdk-authenticate'),
-    path('v1/list/', csrf_exempt(ProjectListView.as_view())),
+    path('v1/list/', ProjectListView.as_view()),
 ]

@@ -1,5 +1,5 @@
 import json
-import jwt
+import jwt # type: ignore
 import logging
 import uuid
 from datetime import datetime, timedelta
@@ -182,14 +182,14 @@ class CreateAgentSessionViewV1(View):
 @method_decorator(user_project_auth_required, name='dispatch')
 class AgentListView(View):
     """
-    POST /api/agent/v1/list/
+    GET /api/agent/v1/list/
 
     Headers:
         X-OTAS-USER-TOKEN
         X-OTAS-PROJECT-ID
     """
 
-    def post(self, request, *args, **kwargs):
+    def get(self, request, *args, **kwargs):
         project = request.project
 
         agents = (
@@ -201,7 +201,7 @@ class AgentListView(View):
         agent_list = []
 
         for agent in agents:
-            keys = agent.keys.filter(active=True)
+            keys = agent.keys.filter(active=True) # type: ignore
 
             key_data = []
             for key in keys:
@@ -220,7 +220,7 @@ class AgentListView(View):
                 "description": agent.description,
                 "provider": agent.provider,
                 "created_at": agent.created_at.isoformat(),
-                "created_by": str(agent.created_by_id),
+                "created_by": str(agent.created_by_id), # type: ignore
                 "is_active": agent.is_active,
                 "agent_keys": key_data,
             })
@@ -237,26 +237,16 @@ class AgentListView(View):
 @method_decorator(user_project_auth_required, name='dispatch')
 class AgentSessionListView(View):
     """
-    POST /api/agent/v1/sessions/list/
+    GET /api/agent/v1/sessions/list/
 
-    Body:
-    {
+    Param:
         "agent_id": "<uuid>"
-    }
     """
 
-    def post(self, request, *args, **kwargs):
+    def get(self, request, *args, **kwargs):
         project = request.project
 
-        try:
-            body = json.loads(request.body or "{}")
-        except json.JSONDecodeError:
-            return JsonResponse({
-                "status": 0,
-                "status_description": "invalid_json"
-            }, status=400)
-
-        agent_id = body.get("agent_id")
+        agent_id = request.GET.get("agent_id")
         if not agent_id:
             return JsonResponse({
                 "status": 0,
@@ -288,7 +278,7 @@ class AgentSessionListView(View):
         for session in sessions:
             session_list.append({
                 "id": str(session.id),
-                "agent_key_id": str(session.agent_key_id) if session.agent_key else None,
+                "agent_key_id": str(session.agent_key_id) if session.agent_key else None, # type: ignore
                 "created_at": session.created_at.isoformat(),
                 "meta": session.meta,
             })
@@ -374,7 +364,7 @@ class AgentKeyCreateView(View):
                         "prefix": agent_key.prefix,
                         "api_key": full_key,
                         "created_at": agent_key.created_at.isoformat(),
-                        "expires_at": agent_key.expires_at.isoformat(),
+                        "expires_at": agent_key.expires_at.isoformat(),  # type: ignore
                         "active": agent_key.active
                     }
                 }

@@ -4,13 +4,13 @@ from .models import Project, UserProjectMapping, BackendAPIKey
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ('name', 'created_by', 'is_active', 'created_at')
+    list_display = ('name', 'created_by', 'is_active', 'created_at', 'domain')
     list_filter = ('is_active', 'created_at')
     search_fields = ('name', 'description')
     readonly_fields = ('id', 'created_at', 'updated_at')
     fieldsets = (
         ('Basic Info', {
-            'fields': ('id', 'name', 'description')
+            'fields': ('id', 'name', 'description', 'domain')
         }),
         ('Status', {
             'fields': ('is_active',)

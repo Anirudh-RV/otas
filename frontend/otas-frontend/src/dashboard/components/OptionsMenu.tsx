@@ -60,7 +60,6 @@ export default function OptionsMenu({ anchorEl, onClose }: OptionsMenuProps) {
         [`& .${dividerClasses.root}`]: { margin: "4px -4px" },
       }}
     >
-      <MenuItem onClick={handleProfileClick}>Profile</MenuItem>
       <MenuItem onClick={handleAccountClick}>My Account</MenuItem>
       <Divider />
       <MenuItem

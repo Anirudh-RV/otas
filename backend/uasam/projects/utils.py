@@ -36,5 +36,7 @@ class ProjectUtils:
 
         if errors:
             return False, {"errors": errors}
+        
+        domain = payload.get("project_domain", "")
 
-        return True, {"project_name": name, "project_description": desc}
+        return True, {"project_name": name, "project_description": desc, "project_domain": domain}
