@@ -24,7 +24,7 @@ export default function NavbarBreadcrumbs() {
       separator={<NavigateNextRoundedIcon fontSize="small" />}
     >
       <Typography variant="h4" sx={{ color: "text.primary", fontWeight: 600 }}>
-        Welcome, {user?.FirstName}
+        Hey, {user?.first_name} ! Let's Track Your Agents!
       </Typography>
     </StyledBreadcrumbs>
   );

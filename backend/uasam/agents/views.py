@@ -1,6 +1,7 @@
 import json
-import jwt
+import jwt # type: ignore
 import logging
+import uuid
 from datetime import datetime, timedelta
 from django.http import JsonResponse
 from django.views import View
@@ -9,6 +10,7 @@ from django.shortcuts import render
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.shortcuts import render
+from django.core.exceptions import ValidationError
 
 from decorators import agent_authenticator, user_project_auth_required
 from users.constants import JWT_SECRET
@@ -177,3 +179,245 @@ class CreateAgentSessionViewV1(View):
                 "status_description": f"server_error: {str(e)}"
             }, status=500)
 
+@method_decorator(user_project_auth_required, name='dispatch')
+class AgentListView(View):
+    """
+    GET /api/agent/v1/list/
+
+    Headers:
+        X-OTAS-USER-TOKEN
+        X-OTAS-PROJECT-ID
+    """
+
+    def get(self, request, *args, **kwargs):
+        project = request.project
+
+        agents = (
+            Agent.objects
+            .filter(project=project, is_active=True)
+            .prefetch_related("keys")
+        )
+
+        agent_list = []
+
+        for agent in agents:
+            keys = agent.keys.filter(active=True) # type: ignore
+
+            key_data = []
+            for key in keys:
+                key_data.append({
+                    "id": str(key.id),
+                    "prefix": key.prefix,
+                    "name": key.name,
+                    "created_at": key.created_at.isoformat(),
+                    "expires_at": key.expires_at.isoformat() if key.expires_at else None,
+                    "active": key.active,
+                })
+
+            agent_list.append({
+                "id": str(agent.id),
+                "name": agent.name,
+                "description": agent.description,
+                "provider": agent.provider,
+                "created_at": agent.created_at.isoformat(),
+                "created_by": str(agent.created_by_id), # type: ignore
+                "is_active": agent.is_active,
+                "agent_keys": key_data,
+            })
+
+        return JsonResponse({
+            "status": 1,
+            "status_description": "agents_listed",
+            "response": {
+                "project_id": str(project.id),
+                "agents": agent_list
+            }
+        }, status=200)
+
+@method_decorator(user_project_auth_required, name='dispatch')
+class AgentSessionListView(View):
+    """
+    GET /api/agent/v1/sessions/list/
+
+    Param:
+        "agent_id": "<uuid>"
+    """
+
+    def get(self, request, *args, **kwargs):
+        project = request.project
+
+        agent_id = request.GET.get("agent_id")
+        if not agent_id:
+            return JsonResponse({
+                "status": 0,
+                "status_description": "agent_id_required"
+            }, status=400)
+
+        try:
+            agent_uuid = uuid.UUID(agent_id)
+            agent = Agent.objects.get(
+                id=agent_uuid,
+                project=project,
+                is_active=True
+            )
+        except (ValueError, Agent.DoesNotExist):
+            return JsonResponse({
+                "status": 0,
+                "status_description": "agent_not_found_or_no_access"
+            }, status=403)
+
+        sessions = (
+            AgentSession.objects
+            .filter(agent=agent)
+            .select_related("agent_key")
+            .order_by("-created_at")
+        )
+
+        session_list = []
+
+        for session in sessions:
+            session_list.append({
+                "id": str(session.id),
+                "agent_key_id": str(session.agent_key_id) if session.agent_key else None, # type: ignore
+                "created_at": session.created_at.isoformat(),
+                "meta": session.meta,
+            })
+
+        return JsonResponse({
+            "status": 1,
+            "status_description": "agent_sessions_listed",
+            "response": {
+                "agent_id": str(agent.id),
+                "sessions": session_list
+            }
+        }, status=200)
+    
+@method_decorator(user_project_auth_required, name='dispatch')
+class AgentKeyCreateView(View):
+    """
+    POST /api/agent/v1/agents/key/create/
+    
+    Generate a new SDK key for an existing Agent.
+    
+    Headers:
+    - X-OTAS-USER-TOKEN: User JWT token
+    - X-OTAS-PROJECT-ID: Project UUID
+    
+    Body: { "agent_id": "<uuid>" }
+    """
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        project = request.project
+        privilege = request.privilege
+
+        # Ensure only admins can create/renew keys
+        if privilege != UserProjectMapping.PRIVILEGE_ADMIN:
+            return JsonResponse({
+                "status": 0,
+                "status_description": "forbidden"
+            }, status=403)
+
+        try:
+            body = json.loads(request.body or "{}")
+            agent_id = body.get("agent_id")
+        except json.JSONDecodeError:
+            return JsonResponse({
+                "status": 0,
+                "status_description": "invalid_json"
+            }, status=400)
+
+        if not agent_id:
+            return JsonResponse({
+                "status": 0,
+                "status_description": "agent_id_required"
+            }, status=400)
+
+        try:
+            # Verify the agent exists and belongs to the project
+            agent = Agent.objects.get(id=agent_id, project=project, is_active=True)
+            
+            with transaction.atomic():
+                # Revoke existing key
+                #AgentKey.objects.filter(agent=agent, active=True).update(active=False, revoked_at=timezone.now())
+
+                full_key, prefix = AgentKey.generate_key()
+                expires_at = timezone.now() + timezone.timedelta(days=30)
+
+                agent_key = AgentKey.objects.create(
+                    prefix=prefix,
+                    agent=agent,
+                    created_at=timezone.now(),
+                    expires_at=expires_at,
+                    active=True
+                )
+
+                agent_key.hash_key(full_key)
+                agent_key.save()
+
+            return JsonResponse({
+                "status": 1,
+                "status_description": "agent_key_created",
+                "response": {
+                    "agent_id": str(agent.id),
+                    "agent_key": {
+                        "id": str(agent_key.id),
+                        "prefix": agent_key.prefix,
+                        "api_key": full_key,
+                        "created_at": agent_key.created_at.isoformat(),
+                        "expires_at": agent_key.expires_at.isoformat(),  # type: ignore
+                        "active": agent_key.active
+                    }
+                }
+            }, status=201)
+        except (Agent.DoesNotExist, ValidationError, ValueError):
+            return JsonResponse({
+                "status": 0, 
+                "status_description": "agent_not_found_or_invalid_id"
+            }, status=404)
+        except Exception as e:
+            logger.exception("Agent key creation failed")
+            return JsonResponse({
+                "status": 0,
+                "status_description": "server_error"
+            }, status=500)
+        
+@method_decorator(agent_authenticator, name='dispatch')
+class AgentAuthVerifyView(View):
+    """
+    POST /api/agent/v1/auth/verify/
+    
+    Validates an Agent Key and returns the associated Project and Agent info.
+    Mirroring the behavior of the SDK authenticator.
+    
+    Header:
+    - X-OTAS-AGENT-KEY: agent_prefix_secret
+    
+    Body: {} (Matches the SDK style where the key is in the header)
+    """
+    def post(self, request, *args, **kwargs):
+        # request.agent and request.agent_key are populated by agent_authenticator
+        agent = request.agent
+        
+        try:
+            # Retrieve the project ID associated with this agent
+            project_id = str(agent.project_id)
+            
+            return JsonResponse({
+                "status": 1,
+                "status_description": "authenticated",
+                "response": {
+                    "project_id": project_id,
+                    "agent": {
+                        "id": str(agent.id),
+                        "name": agent.name,
+                        "provider": agent.provider
+                    },
+                }
+            }, status=200)
+            
+        except Exception as e:
+            logger.exception("Agent auth verification failed")
+            return JsonResponse({
+                "status": 0,
+                "status_description": "verification_failed"
+            }, status=500)

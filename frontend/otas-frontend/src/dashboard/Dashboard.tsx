@@ -17,10 +17,15 @@ import { useAuth } from "../AuthContext";
 import { PROJECT_LIST_ENDPOINT } from "../constants";
 
 interface Project {
-  ID: string;
-  Name: string;
-  Description?: string;
-  Domain?: string;
+  id: string;
+  name: string;
+  description: string | null;
+  domain: string | null;
+  created_at: string; // ISO datetime string
+  updated_at: string; // ISO datetime string
+  is_active: boolean;
+  created_by: string;
+  privilege: number;
 }
 
 export default function Dashboard(props: { disableCustomTheme?: boolean }) {
@@ -42,12 +47,13 @@ export default function Dashboard(props: { disableCustomTheme?: boolean }) {
 
       try {
         const res = await fetch(PROJECT_LIST_ENDPOINT, {
-          headers: { USER_TOKEN: accessToken },
+          headers: { "X-OTAS-USER-TOKEN": accessToken },
         });
+
         const result = await res.json();
 
         if (result.status === 1) {
-          setProjects(result.projects || []);
+          setProjects(result.response_body?.projects ?? []);
         } else {
           setProjects([]);
         }
@@ -73,10 +79,10 @@ export default function Dashboard(props: { disableCustomTheme?: boolean }) {
     if (project_id || projects.length === 0) return;
 
     const firstProject = projects[0];
-    navigate(`/dashboard/${firstProject.ID}/#home`, { replace: true });
+    navigate(`/dashboard/${firstProject.id}/#home`, { replace: true });
   }, [project_id, projects, projectsLoading, navigate]);
 
-  const currentProject = projects.find((p) => p.ID === project_id);
+  const currentProject = projects.find((p) => p.id === project_id);
 
   useEffect(() => {
     if (projectsLoading) return;
@@ -113,6 +119,8 @@ export default function Dashboard(props: { disableCustomTheme?: boolean }) {
             setSearchParams(params, { replace: true });
             window.location.hash = page;
           }}
+          projects={projects}
+          currentProject={currentProject}
         />
         <AppNavbar />
         <Box

@@ -8,12 +8,15 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSearchParams } from "react-router-dom";
 
-export default function Analytics({ projectId }: { projectId: string }) {
+export default function Analytics({
+  projectId,
+}: {
+  projectId: string | undefined;
+}) {
   const { user, accessToken } = useAuth();
   const navigate = useNavigate();
 
   const [searchParams] = useSearchParams();
-  const algorithmRunId = searchParams.get("algorithm_run_id");
 
   return (
     <Box sx={{ width: "100%", maxWidth: { sm: "100%", md: "1700px" } }}>

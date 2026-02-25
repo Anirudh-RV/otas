@@ -21,6 +21,7 @@ export default function CreateProject(props: { disableCustomTheme?: boolean }) {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [domain, setDomain] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,6 +36,11 @@ export default function CreateProject(props: { disableCustomTheme?: boolean }) {
       return;
     }
 
+    if (!accessToken) {
+      setError("Authentication required");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -43,11 +49,12 @@ export default function CreateProject(props: { disableCustomTheme?: boolean }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          USER_TOKEN: accessToken,
+          "X-OTAS-USER-TOKEN": accessToken,
         },
         body: JSON.stringify({
-          name,
-          description,
+          project_name: name,
+          project_description: description || null,
+          project_domain: domain || null,
         }),
       });
 
@@ -57,9 +64,13 @@ export default function CreateProject(props: { disableCustomTheme?: boolean }) {
         throw new Error(data.status_description || "Project creation failed");
       }
 
-      const projectId = data.project.ID;
+      const projectId = data.response_body?.project?.id;
 
-      navigate(`/dashboard/${projectId}`, {
+      if (!projectId) {
+        throw new Error("Invalid server response");
+      }
+
+      navigate(`/dashboard/${projectId}/#home`, {
         replace: true,
       });
     } catch (err: any) {
@@ -156,6 +167,14 @@ export default function CreateProject(props: { disableCustomTheme?: boolean }) {
               minRows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              sx={{ mb: 4 }}
+            />
+
+            <TextField
+              label="Project Domain"
+              fullWidth
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
               sx={{ mb: 4 }}
             />
 

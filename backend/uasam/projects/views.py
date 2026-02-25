@@ -48,77 +48,66 @@ class ProjectCreateView(View):
     """
     POST /api/project/v1/create/
     Body: { "project_name": "...", "project_description": "..." }
-
-    DEV NOTE: Currently hardcoding user ID until auth decorator is ready.
     """
 
     def post(self, request, *args, **kwargs):
-
-        # replace by the decorator
-        
-        # 1. Get Token from Header
-        # token = request.META.get('HTTP_X_OTAS_USER_TOKEN')
-        
-        # if not token:
-        #     return JsonResponse({
-        #         "status": 0, 
-        #         "status_description": "missing_token"
-        #     }, status=400)
-
-        # 2. Authenticate User (The real fix)
-        # user = UserServices.get_user_from_token(token)
-        
         user = request.user
-
-        if not user:
-            return JsonResponse({
-                "status": 0, 
-                "status_description": "invalid_token"
-            }, status=401)
-
+        logger.info("ProjectCreateView: user=%s, email=%s", user.id, user.email)
+        print("User object:", user)
 
         # Parse JSON body
         try:
             body = json.loads(request.body or "{}")
         except json.JSONDecodeError:
             logger.warning("Invalid JSON in project create request")
-            return HttpResponseBadRequest(
-                json.dumps({"status": 0, "status_description": "project_creation_failed"}),
-                content_type="application/json",
-            )
+            return JsonResponse({
+                "status": 0, 
+                "status_description": "invalid_json"
+            }, status=400)
 
-        # 🔹 Debug: log request body
-        print("Request body:", body)
         logger.info("Request body: %s", body)
+        print("Request body:", body)
 
         # Validate payload
-        is_valid, result = ProjectUtils.validate_create_project_payload(body)
-        if not is_valid:
-            # 🔹 Log validation errors
-            logger.info("Project creation validation failed: %s", result["errors"])
-            return JsonResponse(
-                {
+        try:
+            is_valid, result = ProjectUtils.validate_create_project_payload(body)
+            if not is_valid:
+                logger.warning("Payload validation failed: %s", result)
+                return JsonResponse({
                     "status": 0,
                     "status_description": "project_creation_failed",
-                    "errors": result["errors"],  # return exact validation errors
-                },
-                status=400
-            )
+                    "errors": result.get("errors", [])
+                }, status=400)
 
-        req_name = result["project_name"]
-        req_desc = result["project_description"]
-        req_domain = result["project_domain"]
+            project_name = result.get("project_name")
+            project_description = result.get("project_description", "")
+            project_domain = result.get("project_domain", "")
 
-        # Create Project + Mapping in single transaction
+            if not project_name:
+                logger.warning("Validation returned no project_name")
+                return JsonResponse({
+                    "status": 0,
+                    "status_description": "project_creation_failed",
+                    "errors": ["project_name_missing"]
+                }, status=400)
+
+        except Exception as e:
+            logger.exception("Validation exception")
+            return JsonResponse({
+                "status": 0,
+                "status_description": "project_creation_failed",
+                "errors": [str(e)]
+            }, status=500)
+
+        # Create Project + Mapping
         try:
             with transaction.atomic():
                 project = Project.objects.create(
-                    name=req_name,
-                    description=req_desc,
-                    domain=req_domain,
+                    name=project_name.strip(), # type: ignore
+                    description=project_description.strip(), # type: ignore
+                    domain=project_domain,
                     created_by=user,
                 )
-
                 UserProjectMapping.objects.create(
                     user=user,
                     project=project,
@@ -126,8 +115,10 @@ class ProjectCreateView(View):
                     created_at=timezone.now(),
                 )
 
-            # Success response
-            resp = {
+            logger.info("Project created: %s (%s)", project.name, project.id)
+            print("Project created:", project.name, project.id)
+
+            return JsonResponse({
                 "status": 1,
                 "status_description": "project_created",
                 "response_body": {
@@ -135,17 +126,19 @@ class ProjectCreateView(View):
                         "id": str(project.id),
                         "name": project.name,
                         "description": project.description,
+                        "domain": project.domain,
                     }
-                },
-            }
-            return JsonResponse(resp, status=201)
+                }
+            }, status=201)
 
         except Exception as e:
-            logger.exception("Failed to create project or mapping")
-            return JsonResponse(
-                {"status": 0, "status_description": "project_creation_failed"},
-                status=500,
-            )
+            logger.exception("Project creation exception")
+            print("Exception during project creation:", e)
+            return JsonResponse({
+                "status": 0,
+                "status_description": "project_creation_failed",
+                "errors": [str(e)]
+            }, status=500)
         
 class UserProjectAuthenticateViewV1(View):
     """
@@ -336,3 +329,54 @@ class BackendSDKAuthenticateView(View):
                 }
             }
         }, status=200)
+
+@method_decorator(user_auth_required, name='dispatch')
+class ProjectListView(View):
+    """
+    POST /api/project/v1/list/
+    Headers:
+        X-OTAS-USER-TOKEN: <jwt>
+    """
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+
+        try:
+            mappings = (
+                UserProjectMapping.objects
+                .select_related("project")
+                .filter(user=user, is_active=True, project__is_active=True)
+                .order_by("-project__created_at")
+            )
+
+            projects = []
+            for mapping in mappings:
+                project = mapping.project
+
+                projects.append({
+                    "id": str(project.id),
+                    "name": project.name,
+                    "description": project.description,
+                    "domain": project.domain,
+                    "created_at": project.created_at.isoformat(),
+                    "updated_at": project.updated_at.isoformat(),
+                    "is_active": project.is_active,
+                    "created_by": str(project.created_by_id), # type: ignore
+                    "privilege": mapping.privilege,
+                })
+
+            return JsonResponse({
+                "status": 1,
+                "status_description": "projects_listed",
+                "response_body": {
+                    "projects": projects
+                }
+            }, status=200)
+
+        except Exception as e:
+            logger.exception("ProjectListView failed")
+            return JsonResponse({
+                "status": 0,
+                "status_description": "projects_list_failed",
+                "errors": [str(e)]
+            }, status=500)
