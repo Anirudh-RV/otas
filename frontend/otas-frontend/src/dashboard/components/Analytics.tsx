@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSearchParams } from "react-router-dom";
 
-export default function Analytics() {
+export default function Analytics({ projectId }: { projectId: string }) {
   const { user, accessToken } = useAuth();
   const navigate = useNavigate();
 

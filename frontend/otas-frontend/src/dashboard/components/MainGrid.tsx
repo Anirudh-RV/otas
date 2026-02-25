@@ -45,7 +45,7 @@ interface Run {
   PortfolioSize: number;
 }
 
-export default function MainGrid() {
+export default function MainGrid({ projectId }: { projectId: string }) {
   const { user, accessToken } = useAuth();
   const [rows, setRows] = useState<Algorithm[]>([]);
   const navigate = useNavigate();

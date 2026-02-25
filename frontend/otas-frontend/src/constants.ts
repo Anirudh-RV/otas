@@ -29,3 +29,8 @@ export const USER_PYTHON_ALGORITHM_RUNS_V1_ENDPOINT =
 
 export const PASSWORD_UPDATE_V1_ENDPOINT =
   UASAM_ENDPOINT + "/v1/user/reset-password/update/";
+
+export const CREATE_PROJECT_ENDPOINT =
+  UASAM_ENDPOINT + "/api/project/v1/create/";
+
+export const PROJECT_LIST_ENDPOINT = UASAM_ENDPOINT + "/api/project/v1/list/";

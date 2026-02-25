@@ -16,6 +16,7 @@ import { AuthProvider } from "./AuthContext";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
 import ResetPassword from "./reset-password/resetPassword";
+import CreateProject from "./project/CreateProject";
 
 import "./App.css";
 import "highlight.js/styles/github-dark.css";
@@ -133,11 +134,29 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          <Route
+            path="/dashboard/:project_id/*"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/account"
             element={
               <ProtectedRoute>
                 <Account />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/projects/create"
+            element={
+              <ProtectedRoute>
+                <CreateProject />
               </ProtectedRoute>
             }
           />

@@ -12,18 +12,79 @@ import MainGrid from "./components/MainGrid";
 import SideMenu from "./components/SideMenu";
 import AppTheme from "../shared-ui-theme/AppTheme";
 import Analytics from "./components/Analytics";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useAuth } from "../AuthContext";
+import { PROJECT_LIST_ENDPOINT } from "../constants";
+
+interface Project {
+  ID: string;
+  Name: string;
+  Description?: string;
+  Domain?: string;
+}
 
 export default function Dashboard(props: { disableCustomTheme?: boolean }) {
+  const navigate = useNavigate();
+  const { accessToken } = useAuth();
+  const { project_id } = useParams();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
+
   const [selectedPage, setSelectedPage] = useState<"home" | "analytics">(
     "home",
   );
+
+  useEffect(() => {
+    if (!accessToken) return;
+
+    const fetchProjects = async () => {
+      setProjectsLoading(true);
+
+      try {
+        const res = await fetch(PROJECT_LIST_ENDPOINT, {
+          headers: { USER_TOKEN: accessToken },
+        });
+        const result = await res.json();
+
+        if (result.status === 1) {
+          setProjects(result.projects || []);
+        } else {
+          setProjects([]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch projects", err);
+        setProjects([]);
+      } finally {
+        setProjectsLoading(false);
+      }
+    };
+
+    fetchProjects();
+  }, [accessToken]);
 
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     document.title = "Otas - Dashboard";
   }, []);
+
+  useEffect(() => {
+    if (projectsLoading) return;
+    if (project_id || projects.length === 0) return;
+
+    const firstProject = projects[0];
+    navigate(`/dashboard/${firstProject.ID}/#home`, { replace: true });
+  }, [project_id, projects, projectsLoading, navigate]);
+
+  const currentProject = projects.find((p) => p.ID === project_id);
+
+  useEffect(() => {
+    if (projectsLoading) return;
+    console.log("PROJECT LEGNTH", projects.length);
+    if (projects.length === 0) {
+      navigate("/projects/create/", { replace: true });
+    }
+  }, [projects, projectsLoading, navigate]);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -80,8 +141,11 @@ export default function Dashboard(props: { disableCustomTheme?: boolean }) {
             sx={{ alignItems: "center", mx: 2, pb: 5, mt: { xs: 8, md: 0 } }}
           >
             <Header />
-            {selectedPage === "home" && <MainGrid />}
-            {selectedPage === "analytics" && <Analytics />}
+            {selectedPage === "home" && <MainGrid projectId={project_id} />}
+
+            {selectedPage === "analytics" && (
+              <Analytics projectId={project_id} />
+            )}
           </Stack>
         </Box>
       </Box>
