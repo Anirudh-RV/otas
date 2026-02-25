@@ -107,6 +107,7 @@ class ProjectCreateView(View):
 
         req_name = result["project_name"]
         req_desc = result["project_description"]
+        req_domain = result["project_domain"]
 
         # Create Project + Mapping in single transaction
         try:
@@ -114,8 +115,8 @@ class ProjectCreateView(View):
                 project = Project.objects.create(
                     name=req_name,
                     description=req_desc,
+                    domain=req_domain,
                     created_by=user,
-                    created_at=timezone.now(),
                 )
 
                 UserProjectMapping.objects.create(

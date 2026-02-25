@@ -13,6 +13,7 @@ class Project(models.Model):
     name = models.CharField(max_length=255)                 # spec said UUID for NAME but treat as human string
     description = models.CharField(max_length=300, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
+    domain = models.URLField(max_length=200, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
     created_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name='created_projects')

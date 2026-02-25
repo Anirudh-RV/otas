@@ -29,41 +29,14 @@ services:
     build:
       context: ..
       dockerfile: Dockerfiles/Dockerfile-local
-    command: python manage.py runserver 0.0.0.0:8000
+    command: >
+      sh -c "python manage.py makemigrations &&
+             python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
     volumes:
       - ..:/code
     ports:
       - "8000:8000"
-    env_file:
-      - ../env/env-local.env
-    depends_on:
-      uasam-db:
-        condition: service_healthy
-      uasam-redis:
-        condition: service_healthy
-
-  uasam-celery:
-    build:
-      context: ..
-      dockerfile: Dockerfiles/Dockerfile-local
-    command: celery -A uasam worker --loglevel=info
-    volumes:
-      - ..:/code
-    env_file:
-      - ../env/env-local.env
-    depends_on:
-      uasam-db:
-        condition: service_healthy
-      uasam-redis:
-        condition: service_healthy
-
-  uasam-celery-beat:
-    build:
-      context: ..
-      dockerfile: Dockerfiles/Dockerfile-local
-    command: celery -A uasam beat --loglevel=info
-    volumes:
-      - ..:/code
     env_file:
       - ../env/env-local.env
     depends_on:
