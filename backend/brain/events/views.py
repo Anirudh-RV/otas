@@ -6,7 +6,7 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
 from .models import BackendEvent
-from .utils import validate_agent_session_token, verify_sdk_key, build_event_and_save
+from .utils import validate_agent_session_token, verify_sdk_key, build_event_and_save, validate_agent_key
 
 logger = logging.getLogger(__name__)
 
@@ -84,4 +84,78 @@ class BackendEventCaptureView(View):
             return JsonResponse({
                 'status': 0,
                 'status_description': 'event_capture_failed',
+            }, status=500)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class AgentLogCaptureView(View):
+    """
+    OTAS-37: Agent Log API endpoint.
+    Agents use this endpoint to send logs/events directly with agent key authentication.
+    
+    POST /api/v1/backend/log/agent/
+    Headers: X-OTAS-AGENT-KEY
+    Body: Same as BackendEventCaptureView but without passing project_id (extracted from agent key)
+    """
+
+    def post(self, request, *args, **kwargs):
+        agent_key = request.headers.get('X-OTAS-AGENT-KEY')
+        if not agent_key:
+            return JsonResponse({
+                'status': 0,
+                'status_description': 'missing_agent_key',
+            }, status=401)
+
+        auth_data = validate_agent_key(agent_key)
+        if not auth_data:
+            return JsonResponse({
+                'status': 0,
+                'status_description': 'invalid_or_expired_agent_key',
+            }, status=401)
+
+        try:
+            body = json.loads(request.body or '{}')
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'status': 0,
+                'status_description': 'invalid_json',
+            }, status=400)
+
+        missing = [f for f in REQUIRED_FIELDS if f not in body]
+        if missing:
+            return JsonResponse({
+                'status': 0,
+                'status_description': 'missing_required_fields',
+                'missing_fields': missing,
+            }, status=400)
+
+        try:
+            event_kwargs = {
+                'agent_id': auth_data['agent_id'],
+                'project_id': auth_data['project_id'],
+                'path': body['path'],
+                'method': body['method'],
+                'status_code': body['status_code'],
+                'latency_ms': body['latency_ms'],
+            }
+
+            for field in OPTIONAL_FIELDS:
+                if field in body:
+                    event_kwargs[field] = body[field]
+
+            event = BackendEvent.objects.create(**event_kwargs)
+
+            return JsonResponse({
+                'status': 1,
+                'status_description': 'log_captured',
+                'response': {
+                    'event_id': str(event.event_id),
+                },
+            }, status=201)
+
+        except Exception as e:
+            logger.exception('Agent log capture failed')
+            return JsonResponse({
+                'status': 0,
+                'status_description': 'log_capture_failed',
             }, status=500)
