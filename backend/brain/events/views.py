@@ -6,7 +6,7 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
 from .models import BackendEvent
-from .utils import validate_agent_session_token, verify_sdk_key, build_event_and_save, validate_agent_key
+from .utils import validate_agent_session_token, verify_sdk_key, build_event_and_save, validate_agent_key, build_agent_event_and_save
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +113,20 @@ class AgentLogCaptureView(View):
                 'status_description': 'invalid_or_expired_agent_key',
             }, status=401)
 
+        token = request.headers.get('X-OTAS-AGENT-SESSION-TOKEN')
+        if not token:
+            return JsonResponse({
+                'status': 0,
+                'status_description': 'missing_agent_session_token',
+            }, status=401)
+
+        token_data = validate_agent_session_token(token)
+        if not token_data:
+            return JsonResponse({
+                'status': 0,
+                'status_description': 'invalid_or_expired_token',
+            }, status=401)
+
         try:
             body = json.loads(request.body or '{}')
         except json.JSONDecodeError:
@@ -130,32 +144,17 @@ class AgentLogCaptureView(View):
             }, status=400)
 
         try:
-            event_kwargs = {
-                'agent_id': auth_data['agent_id'],
-                'project_id': auth_data['project_id'],
-                'path': body['path'],
-                'method': body['method'],
-                'status_code': body['status_code'],
-                'latency_ms': body['latency_ms'],
-            }
-
-            for field in OPTIONAL_FIELDS:
-                if field in body:
-                    event_kwargs[field] = body[field]
-
-            event = BackendEvent.objects.create(**event_kwargs)
-
+            event = build_agent_event_and_save(auth_data, body, OPTIONAL_FIELDS)
             return JsonResponse({
                 'status': 1,
-                'status_description': 'log_captured',
+                'status_description': 'event_captured',
                 'response': {
                     'event_id': str(event.event_id),
                 },
             }, status=201)
-
         except Exception as e:
             logger.exception('Agent log capture failed')
             return JsonResponse({
                 'status': 0,
-                'status_description': 'log_capture_failed',
+                'status_description': 'event_capture_failed',
             }, status=500)

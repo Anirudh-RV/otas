@@ -145,6 +145,3 @@ ALLOWED_HOSTS = ['*']
 
 # JWT
 JWT_SECRET = os.getenv('JWT_SECRET', 'some-jwt-secret')
-
-# UASAM Service
-UASAM_BASE_URL = os.getenv('UASAM_BASE_URL', 'http://localhost:8001')
