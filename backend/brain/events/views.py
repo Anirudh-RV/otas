@@ -6,7 +6,7 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
 from .models import BackendEvent
-from .utils import validate_agent_session_token
+from .utils import validate_agent_session_token, verify_sdk_key
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,21 @@ OPTIONAL_FIELDS = [
 class BackendEventCaptureView(View):
 
     def post(self, request, *args, **kwargs):
+
+        sdk_key = request.headers.get('X-OTAS-SDK-KEY')
+        if not sdk_key:
+            return JsonResponse({
+                'status': 0,
+                'status_description': 'missing_sdk_key',
+            }, status=401)
+
+        project_info = verify_sdk_key(sdk_key)
+        if not project_info:
+            return JsonResponse({
+                'status': 0,
+                'status_description': 'invalid_sdk_key',
+            }, status=401)
+
         token = request.headers.get('X-OTAS-AGENT-SESSION-TOKEN')
         if not token:
             return JsonResponse({
@@ -59,7 +74,7 @@ class BackendEventCaptureView(View):
             event_kwargs = {
                 'agent_session_id': token_data['agent_session_id'],
                 'agent_id': token_data['agent_id'],
-                'project_id': body['project_id'],
+                'project_id': project_info['id'],
                 'path': body['path'],
                 'method': body['method'],
                 'status_code': body['status_code'],
