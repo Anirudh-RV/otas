@@ -2,5 +2,5 @@ from django.urls import path
 from .views import BackendEventCaptureView
 
 urlpatterns = [
-    path('api/events/v1/capture/', BackendEventCaptureView.as_view(), name='event-capture'),
+    path('api/v1/backend/log/sdk/', BackendEventCaptureView.as_view(), name='event-capture'),
 ]

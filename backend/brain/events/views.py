@@ -6,7 +6,7 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
 from .models import BackendEvent
-from .utils import validate_agent_session_token
+from .utils import validate_agent_session_token, verify_sdk_key, build_event_and_save
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,21 @@ OPTIONAL_FIELDS = [
 class BackendEventCaptureView(View):
 
     def post(self, request, *args, **kwargs):
+
+        sdk_key = request.headers.get('X-OTAS-SDK-KEY')
+        if not sdk_key:
+            return JsonResponse({
+                'status': 0,
+                'status_description': 'missing_sdk_key',
+            }, status=401)
+
+        project_info = verify_sdk_key(sdk_key)
+        if not project_info:
+            return JsonResponse({
+                'status': 0,
+                'status_description': 'invalid_sdk_key',
+            }, status=401)
+
         token = request.headers.get('X-OTAS-AGENT-SESSION-TOKEN')
         if not token:
             return JsonResponse({
@@ -56,22 +71,7 @@ class BackendEventCaptureView(View):
             }, status=400)
 
         try:
-            event_kwargs = {
-                'agent_session_id': token_data['agent_session_id'],
-                'agent_id': token_data['agent_id'],
-                'project_id': body['project_id'],
-                'path': body['path'],
-                'method': body['method'],
-                'status_code': body['status_code'],
-                'latency_ms': body['latency_ms'],
-            }
-
-            for field in OPTIONAL_FIELDS:
-                if field in body:
-                    event_kwargs[field] = body[field]
-
-            event = BackendEvent.objects.create(**event_kwargs)
-
+            event = build_event_and_save(token_data, project_info, body, OPTIONAL_FIELDS)
             return JsonResponse({
                 'status': 1,
                 'status_description': 'event_captured',
@@ -79,7 +79,6 @@ class BackendEventCaptureView(View):
                     'event_id': str(event.event_id),
                 },
             }, status=201)
-
         except Exception as e:
             logger.exception('Event capture failed')
             return JsonResponse({
