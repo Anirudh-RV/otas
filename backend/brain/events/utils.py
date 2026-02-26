@@ -1,3 +1,4 @@
+from .models import BackendEvent
 import jwt
 import requests
 from django.conf import settings
@@ -42,3 +43,21 @@ def verify_sdk_key(sdk_key):
         return None
     except Exception:
         return None
+
+def build_event_and_save(token_data, project_info, body, OPTIONAL_FIELDS):
+    """
+    Builds event_kwargs and saves to DB. Returns the event object.
+    """
+    event_kwargs = {
+        'agent_session_id': token_data['agent_session_id'],
+        'agent_id': token_data['agent_id'],
+        'project_id': project_info['id'],
+        'path': body['path'],
+        'method': body['method'],
+        'status_code': body['status_code'],
+        'latency_ms': body['latency_ms'],
+    }
+    for field in OPTIONAL_FIELDS:
+        if field in body:
+            event_kwargs[field] = body[field]
+    return BackendEvent.objects.create(**event_kwargs)
