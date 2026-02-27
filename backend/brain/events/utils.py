@@ -4,6 +4,7 @@ import requests
 from django.conf import settings
 
 SDK_AUTH_URL = getattr(settings, 'SDK_AUTH_URL', 'http://uasam-backend:8000/api/project/v1/sdk/backend/key/authenticate/')
+AGENT_AUTH_URL = getattr(settings, 'AGENT_AUTH_URL', 'http://uasam-backend:8000/api/agent/v1/auth/verify/')
 
 def validate_agent_session_token(token):
     """
@@ -52,6 +53,48 @@ def build_event_and_save(token_data, project_info, body, OPTIONAL_FIELDS):
         'agent_session_id': token_data['agent_session_id'],
         'agent_id': token_data['agent_id'],
         'project_id': project_info['id'],
+        'path': body['path'],
+        'method': body['method'],
+        'status_code': body['status_code'],
+        'latency_ms': body['latency_ms'],
+    }
+    for field in OPTIONAL_FIELDS:
+        if field in body:
+            event_kwargs[field] = body[field]
+    return BackendEvent.objects.create(**event_kwargs)
+
+def validate_agent_key(agent_key):
+    """
+    Validates an agent key by calling the uasam agent auth verify endpoint.
+    Returns agent_id and project_id on success, None on failure.
+    """
+    try:
+        endpoint = AGENT_AUTH_URL  # Use directly, do not append path
+        headers = {
+            'X-OTAS-AGENT-KEY': agent_key,
+        }
+        response = requests.post(endpoint, headers=headers, json={}, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('status') == 1:
+                agent_data = data.get('response', {})
+                return {
+                    'agent_id': agent_data.get('agent', {}).get('id'),
+                    'project_id': agent_data.get('project_id'),
+                    'agent_name': agent_data.get('agent', {}).get('name'),
+                    'provider': agent_data.get('agent', {}).get('provider'),
+                }
+        return None
+    except (requests.RequestException, Exception):
+        return None
+
+def build_agent_event_and_save(agent_info, body, OPTIONAL_FIELDS):
+    """
+    Builds event_kwargs for agent event and saves to DB. Returns the event object.
+    """
+    event_kwargs = {
+        'agent_id': agent_info['agent_id'],
+        'project_id': agent_info['project_id'],
         'path': body['path'],
         'method': body['method'],
         'status_code': body['status_code'],
