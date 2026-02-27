@@ -88,14 +88,13 @@ class BackendEventCaptureView(View):
 
 
 @method_decorator(csrf_exempt, name='dispatch')
-class AgentLogCaptureView(View):
+class AgentEventCaptureView(View):
     """
     OTAS-37: Agent Log API endpoint.
     Agents use this endpoint to send logs/events directly with agent key authentication.
     
     POST /api/v1/backend/log/agent/
-    Headers: X-OTAS-AGENT-KEY
-    Body: Same as BackendEventCaptureView but without passing project_id (extracted from agent key)
+    Headers: X-OTAS-AGENT-KEY, X-OTAS-AGENT-SESSION-TOKEN
     """
 
     def post(self, request, *args, **kwargs):
