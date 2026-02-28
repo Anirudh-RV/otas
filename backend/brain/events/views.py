@@ -71,12 +71,11 @@ class BackendEventCaptureView(View):
             }, status=400)
 
         try:
-            event = build_event_and_save(token_data, project_info, body, OPTIONAL_FIELDS)
+            build_event_and_save(token_data, project_info, body, OPTIONAL_FIELDS)
             return JsonResponse({
                 'status': 1,
                 'status_description': 'event_captured',
                 'response': {
-                    'event_id': str(event.event_id),
                 },
             }, status=201)
         except Exception as e:
