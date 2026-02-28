@@ -13,7 +13,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  accessToken: string | null;
+  otasAccessToken: string | null;
   setAuth: (user: User, token: string) => void;
   clearAuth: () => void;
   refreshAuth: () => Promise<void>;
@@ -26,11 +26,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [otasAccessToken, setotasAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshAuth = async () => {
-    const token = localStorage.getItem("accessToken");
+    const token = localStorage.getItem("otasAccessToken");
     if (!token) {
       clearAuth();
       return;
@@ -49,7 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         const userFromApi = data.response_body.user;
 
         setUser(userFromApi);
-        setAccessToken(token);
+        setotasAccessToken(token);
         localStorage.setItem("user", JSON.stringify(userFromApi));
       } else {
         console.warn("Authentication failed, logging out.");
@@ -67,21 +67,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const setAuth = (user: User, token: string) => {
     localStorage.setItem("user", JSON.stringify(user));
-    localStorage.setItem("accessToken", token);
+    localStorage.setItem("otasAccessToken", token);
     setUser(user);
-    setAccessToken(token);
+    setotasAccessToken(token);
   };
 
   const clearAuth = () => {
     localStorage.removeItem("user");
-    localStorage.removeItem("accessToken");
+    localStorage.removeItem("otasAccessToken");
     setUser(null);
-    setAccessToken(null);
+    setotasAccessToken(null);
   };
 
   return (
     <AuthContext.Provider
-      value={{ user, accessToken, setAuth, clearAuth, refreshAuth, isLoading }}
+      value={{
+        user,
+        otasAccessToken,
+        setAuth,
+        clearAuth,
+        refreshAuth,
+        isLoading,
+      }}
     >
       {children}
     </AuthContext.Provider>

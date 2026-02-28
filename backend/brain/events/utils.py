@@ -37,9 +37,12 @@ def verify_sdk_key(sdk_key):
     try:
         headers = {"X-OTAS-SDK-KEY": sdk_key}
         resp = requests.post(SDK_AUTH_URL, headers=headers)
+        print(f"response: {resp}")
         if resp.status_code == 200:
             data = resp.json()
+            print(f"response data: {data}")
             if data.get("status") == 1:
+                print(f'project: {data["response"]["project"]}')
                 return data["response"]["project"]
         return None
     except Exception:

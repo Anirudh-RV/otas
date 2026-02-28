@@ -11,13 +11,16 @@ import { useTheme, useColorScheme } from "@mui/material/styles";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import Tooltip from "@mui/material/Tooltip";
+import CreateAgent from "./CreateAgent";
 
 export default function MainGrid({
   projectId,
+  projectDomain,
 }: {
   projectId: string | undefined;
+  projectDomain: string | null | undefined;
 }) {
-  const { user, accessToken } = useAuth();
+  const { user, otasAccessToken } = useAuth();
   const [rows, setRows] = useState<Algorithm[]>([]);
   const navigate = useNavigate();
 
@@ -26,15 +29,26 @@ export default function MainGrid({
 
   return (
     <Box sx={{ width: "100%", maxWidth: { sm: "100%", md: "1700px" } }}>
-      {/* cards */}
+      {/* Create Agent Section */}
       <Grid container spacing={2} columns={12}>
-        <Box sx={{ width: "100%", maxWidth: "100%" }}>
+        <Box sx={{ width: "100%", maxWidth: "100%", mb: 1 }}>
           <Typography variant="h6" sx={{ mb: 2 }}>
             Create Agent
           </Typography>
+          <CreateAgent
+            projectId={projectId}
+            projectDomain={projectDomain}
+            otasAccessToken={otasAccessToken}
+            onAgentCreated={(agent) => {
+              console.log("Agent created:", agent);
+              // optionally refresh agent list here
+            }}
+          />
         </Box>
       </Grid>
-      <Grid container spacing={2} columns={12}>
+
+      {/* Agent Details Section */}
+      <Grid container spacing={2} columns={12} sx={{ mt: 2 }}>
         <Box sx={{ width: "100%", maxWidth: "100%" }}>
           <Typography variant="h6" sx={{ mb: 2 }}>
             Agent Details

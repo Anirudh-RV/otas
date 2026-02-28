@@ -30,7 +30,7 @@ interface Project {
 
 export default function Dashboard(props: { disableCustomTheme?: boolean }) {
   const navigate = useNavigate();
-  const { accessToken } = useAuth();
+  const { otasAccessToken } = useAuth();
   const { project_id } = useParams();
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
@@ -40,14 +40,14 @@ export default function Dashboard(props: { disableCustomTheme?: boolean }) {
   );
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (!otasAccessToken) return;
 
     const fetchProjects = async () => {
       setProjectsLoading(true);
 
       try {
         const res = await fetch(PROJECT_LIST_ENDPOINT, {
-          headers: { "X-OTAS-USER-TOKEN": accessToken },
+          headers: { "X-OTAS-USER-TOKEN": otasAccessToken },
         });
 
         const result = await res.json();
@@ -66,7 +66,7 @@ export default function Dashboard(props: { disableCustomTheme?: boolean }) {
     };
 
     fetchProjects();
-  }, [accessToken]);
+  }, [otasAccessToken]);
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -149,7 +149,12 @@ export default function Dashboard(props: { disableCustomTheme?: boolean }) {
             sx={{ alignItems: "center", mx: 2, pb: 5, mt: { xs: 8, md: 0 } }}
           >
             <Header />
-            {selectedPage === "home" && <MainGrid projectId={project_id} />}
+            {selectedPage === "home" && (
+              <MainGrid
+                projectId={project_id}
+                projectDomain={currentProject?.domain}
+              />
+            )}
 
             {selectedPage === "analytics" && (
               <Analytics projectId={project_id} />

@@ -25,7 +25,7 @@ import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
 
 export default function Account(props: { disableCustomTheme?: boolean }) {
-  const { user, accessToken, refreshAuth, clearAuth } = useAuth();
+  const { user, otasAccessToken, refreshAuth, clearAuth } = useAuth();
 
   const [selectedMenu, setSelectedMenu] = useState<"user" | "resetPassword">(
     "user",
@@ -57,7 +57,7 @@ export default function Account(props: { disableCustomTheme?: boolean }) {
   }, [user]);
 
   const handleSave = async () => {
-    if (!accessToken) {
+    if (!otasAccessToken) {
       alert("User not authenticated");
       return;
     }
@@ -69,7 +69,7 @@ export default function Account(props: { disableCustomTheme?: boolean }) {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          USER_TOKEN: accessToken,
+          USER_TOKEN: otasAccessToken,
         },
         body: JSON.stringify({
           first_name: firstName,
@@ -96,7 +96,7 @@ export default function Account(props: { disableCustomTheme?: boolean }) {
   };
 
   const handleResetPassword = async () => {
-    if (!accessToken) {
+    if (!otasAccessToken) {
       snackBarPromptError("Password update Error");
       return;
     }
@@ -118,7 +118,7 @@ export default function Account(props: { disableCustomTheme?: boolean }) {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          USER_TOKEN: accessToken,
+          USER_TOKEN: otasAccessToken,
         },
         body: JSON.stringify({
           password: newPassword,
