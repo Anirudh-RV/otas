@@ -169,3 +169,126 @@ class UserAuthenticateViewV1(View):
                 'status_description': f'server_error: {str(e)}',
                 'response_body': None
             }, status=500)
+
+
+class UserEditViewV1(View):
+    """
+    API endpoint to update current user profile
+    PUT /api/user/v1/edit/
+    Header: X-OTAS-USER-TOKEN
+    """
+
+    def put(self, request):
+        try:
+            token = request.META.get('HTTP_X_OTAS_USER_TOKEN')
+            if not token:
+                return JsonResponse({
+                    'status': 0,
+                    'status_description': 'missing_token',
+                    'response_body': None
+                }, status=400)
+
+            user = UserServices.get_user_from_token(token)
+            if not user:
+                return JsonResponse({
+                    'status': 0,
+                    'status_description': 'invalid_token',
+                    'response_body': None
+                }, status=401)
+
+            body = json.loads(request.body)
+            first_name = body.get('first_name', '').strip()
+            middle_name = body.get('middle_name', '').strip()
+            last_name = body.get('last_name', '').strip()
+
+            if not first_name or not last_name:
+                return JsonResponse({
+                    'status': 0,
+                    'status_description': 'missing_required_fields',
+                    'response_body': None
+                }, status=400)
+
+            result = UserServices.update_user_profile(
+                user=user,
+                first_name=first_name,
+                middle_name=middle_name,
+                last_name=last_name
+            )
+
+            if result['status'] == 1:
+                return JsonResponse(result, status=200)
+            return JsonResponse(result, status=400)
+
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'status': 0,
+                'status_description': 'invalid_json',
+                'response_body': None
+            }, status=400)
+        except Exception as e:
+            return JsonResponse({
+                'status': 0,
+                'status_description': f'server_error: {str(e)}',
+                'response_body': None
+            }, status=500)
+
+
+class UserPasswordUpdateViewV1(View):
+    """
+    API endpoint to update current user password
+    PUT /api/user/v1/reset-password/update/
+    Header: X-OTAS-USER-TOKEN
+    """
+
+    def put(self, request):
+        try:
+            token = request.META.get('HTTP_X_OTAS_USER_TOKEN')
+            if not token:
+                return JsonResponse({
+                    'status': 0,
+                    'status_description': 'missing_token',
+                    'response_body': None
+                }, status=400)
+
+            user = UserServices.get_user_from_token(token)
+            if not user:
+                return JsonResponse({
+                    'status': 0,
+                    'status_description': 'invalid_token',
+                    'response_body': None
+                }, status=401)
+
+            body = json.loads(request.body)
+            password = body.get('password', '')
+
+            if not password:
+                return JsonResponse({
+                    'status': 0,
+                    'status_description': 'missing_password',
+                    'response_body': None
+                }, status=400)
+
+            if len(password) < 6:
+                return JsonResponse({
+                    'status': 0,
+                    'status_description': 'password_too_short',
+                    'response_body': None
+                }, status=400)
+
+            result = UserServices.update_user_password(user=user, password=password)
+            if result['status'] == 1:
+                return JsonResponse(result, status=200)
+            return JsonResponse(result, status=400)
+
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'status': 0,
+                'status_description': 'invalid_json',
+                'response_body': None
+            }, status=400)
+        except Exception as e:
+            return JsonResponse({
+                'status': 0,
+                'status_description': f'server_error: {str(e)}',
+                'response_body': None
+            }, status=500)
