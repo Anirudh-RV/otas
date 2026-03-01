@@ -133,3 +133,57 @@ class UserServices:
             
         except (jwt.ExpiredSignatureError, jwt.DecodeError, User.DoesNotExist):
             return None
+
+    @staticmethod
+    def update_user_profile(user, first_name, middle_name, last_name):
+        """
+        Update basic user profile fields.
+        """
+        try:
+            user.first_name = first_name
+            user.middle_name = middle_name
+            user.last_name = last_name
+            user.save()
+
+            return {
+                'status': 1,
+                'status_description': 'user_profile_updated',
+                'response_body': {
+                    'user': {
+                        'id': str(user.id),
+                        'first_name': user.first_name,
+                        'middle_name': user.middle_name,
+                        'last_name': user.last_name,
+                        'email': user.email,
+                        'created_at': user.created_at.isoformat(),
+                        'updated_at': user.updated_at.isoformat(),
+                    }
+                }
+            }
+        except Exception as e:
+            return {
+                'status': 0,
+                'status_description': f'error: {str(e)}',
+                'response_body': None
+            }
+
+    @staticmethod
+    def update_user_password(user, password):
+        """
+        Update user password (hashes automatically in model save).
+        """
+        try:
+            user.password = password
+            user.save()
+
+            return {
+                'status': 1,
+                'status_description': 'password_updated',
+                'response_body': None
+            }
+        except Exception as e:
+            return {
+                'status': 0,
+                'status_description': f'error: {str(e)}',
+                'response_body': None
+            }

@@ -69,7 +69,7 @@ export default function Account(props: { disableCustomTheme?: boolean }) {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          USER_TOKEN: otasAccessToken,
+          "X-OTAS-USER-TOKEN": otasAccessToken,
         },
         body: JSON.stringify({
           first_name: firstName,
@@ -118,7 +118,7 @@ export default function Account(props: { disableCustomTheme?: boolean }) {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          USER_TOKEN: otasAccessToken,
+          "X-OTAS-USER-TOKEN": otasAccessToken,
         },
         body: JSON.stringify({
           password: newPassword,
@@ -380,8 +380,12 @@ export default function Account(props: { disableCustomTheme?: boolean }) {
                     />
                   </Box>
 
-                  <Button variant="contained" onClick={handleResetPassword}>
-                    Submit
+                  <Button
+                    variant="contained"
+                    onClick={handleResetPassword}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Saving..." : "Save"}
                   </Button>
                 </Box>
               </>
