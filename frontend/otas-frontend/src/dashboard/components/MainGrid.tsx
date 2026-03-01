@@ -12,6 +12,7 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import Tooltip from "@mui/material/Tooltip";
 import CreateAgent from "./CreateAgent";
+import CreateBackendSdkKey from "./CreateBackendSdkKey";
 
 export default function MainGrid({
   projectId,
@@ -35,15 +36,21 @@ export default function MainGrid({
           <Typography variant="h6" sx={{ mb: 2 }}>
             Create Agent
           </Typography>
-          <CreateAgent
-            projectId={projectId}
-            projectDomain={projectDomain}
-            otasAccessToken={otasAccessToken}
-            onAgentCreated={(agent) => {
-              console.log("Agent created:", agent);
-              // optionally refresh agent list here
-            }}
-          />
+          <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+            <CreateAgent
+              projectId={projectId}
+              projectDomain={projectDomain}
+              otasAccessToken={otasAccessToken || undefined}
+              onAgentCreated={(agent) => {
+                console.log("Agent created:", agent);
+                // optionally refresh agent list here
+              }}
+            />
+            <CreateBackendSdkKey
+              projectId={projectId}
+              otasAccessToken={otasAccessToken || undefined}
+            />
+          </Box>
         </Box>
       </Grid>
 
