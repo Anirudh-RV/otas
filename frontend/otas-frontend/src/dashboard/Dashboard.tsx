@@ -21,8 +21,8 @@ interface Project {
   name: string;
   description: string | null;
   domain: string | null;
-  created_at: string; // ISO datetime string
-  updated_at: string; // ISO datetime string
+  created_at: string;
+  updated_at: string;
   is_active: boolean;
   created_by: string;
   privilege: number;
@@ -35,23 +35,18 @@ export default function Dashboard(props: { disableCustomTheme?: boolean }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
 
-  const [selectedPage, setSelectedPage] = useState<"home" | "analytics">(
-    "home",
-  );
+  const [selectedPage, setSelectedPage] = useState<"home" | "analytics">("home");
 
   useEffect(() => {
     if (!accessToken) return;
 
     const fetchProjects = async () => {
       setProjectsLoading(true);
-
       try {
         const res = await fetch(PROJECT_LIST_ENDPOINT, {
           headers: { "X-OTAS-USER-TOKEN": accessToken },
         });
-
         const result = await res.json();
-
         if (result.status === 1) {
           setProjects(result.response_body?.projects ?? []);
         } else {
@@ -77,7 +72,6 @@ export default function Dashboard(props: { disableCustomTheme?: boolean }) {
   useEffect(() => {
     if (projectsLoading) return;
     if (project_id || projects.length === 0) return;
-
     const firstProject = projects[0];
     navigate(`/dashboard/${firstProject.id}/#home`, { replace: true });
   }, [project_id, projects, projectsLoading, navigate]);
@@ -99,9 +93,7 @@ export default function Dashboard(props: { disableCustomTheme?: boolean }) {
         setSelectedPage(hash as typeof selectedPage);
       }
     };
-
-    handleHashChange(); // run once on mount
-
+    handleHashChange();
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
@@ -148,14 +140,11 @@ export default function Dashboard(props: { disableCustomTheme?: boolean }) {
             spacing={2}
             sx={{ alignItems: "center", mx: 2, pb: 5, mt: { xs: 8, md: 0 } }}
           >
-            <Header />
+            {/* Only change: pass project_id to Header */}
+            <Header projectId={project_id ?? ""} />
             {selectedPage === "home" && (
-              <MainGrid
-                projectId={project_id}
-                projectDomain={currentProject?.domain}
-              />
+              <MainGrid projectId={project_id} projectDomain={currentProject?.domain} />
             )}
-
             {selectedPage === "analytics" && (
               <Analytics projectId={project_id} />
             )}

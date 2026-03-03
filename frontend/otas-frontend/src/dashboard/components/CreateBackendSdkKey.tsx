@@ -150,7 +150,7 @@ export default function CreateBackendSdkKey({
           className="capsule-text"
           sx={{ letterSpacing: 0.3 }}
         >
-          Create Backend SDK Key
+          Create SDK Key
         </Typography>
         <AddIcon fontSize="small" className="capsule-icon" />
       </Box>
@@ -179,7 +179,7 @@ export default function CreateBackendSdkKey({
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <KeyOutlinedIcon color="primary" />
             <Typography variant="h6" fontWeight={700}>
-              {step === "form" ? "Create Backend SDK Key" : "SDK Key Created"}
+              {step === "form" ? "Create SDK Key" : "SDK Key Created"}
             </Typography>
             {step === "success" && (
               <Chip

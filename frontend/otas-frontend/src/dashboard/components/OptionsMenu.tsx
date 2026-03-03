@@ -10,35 +10,18 @@ import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import { useAuth } from "../../AuthContext";
 import { useNavigate } from "react-router-dom";
 
-const MenuItem = styled(MuiMenuItem)({
-  margin: "2px 0",
-});
+const MenuItem = styled(MuiMenuItem)({ margin: "2px 0" });
 
 interface OptionsMenuProps {
   anchorEl: null | HTMLElement;
   onClose: () => void;
+  projectId: string;
 }
 
-export default function OptionsMenu({ anchorEl, onClose }: OptionsMenuProps) {
+export default function OptionsMenu({ anchorEl, onClose, projectId }: OptionsMenuProps) {
   const open = Boolean(anchorEl);
   const navigate = useNavigate();
   const { clearAuth } = useAuth();
-
-  const handleLogout = () => {
-    clearAuth();
-    navigate("/");
-    onClose();
-  };
-
-  const handleProfileClick = () => {
-    navigate("/profile");
-    onClose();
-  };
-
-  const handleAccountClick = () => {
-    navigate("/account");
-    onClose();
-  };
 
   return (
     <Menu
@@ -47,11 +30,7 @@ export default function OptionsMenu({ anchorEl, onClose }: OptionsMenuProps) {
       open={open}
       onClose={onClose}
       onClick={onClose}
-      slotProps={{
-        list: {
-          autoFocusItem: false,
-        },
-      }}
+      slotProps={{ list: { autoFocusItem: false } }}
       transformOrigin={{ horizontal: "right", vertical: "top" }}
       anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
       sx={{
@@ -60,21 +39,19 @@ export default function OptionsMenu({ anchorEl, onClose }: OptionsMenuProps) {
         [`& .${dividerClasses.root}`]: { margin: "4px -4px" },
       }}
     >
-      <MenuItem onClick={handleAccountClick}>My Account</MenuItem>
+      <MenuItem onClick={() => { navigate("/profile"); onClose(); }}>Profile</MenuItem>
+      <MenuItem onClick={() => {
+        const dest = projectId ? `/account?projectId=${projectId}` : "/account";
+        navigate(dest);
+        onClose();
+      }}>My Account</MenuItem>
       <Divider />
       <MenuItem
-        onClick={handleLogout}
-        sx={{
-          [`& .${listItemIconClasses.root}`]: {
-            ml: "auto",
-            minWidth: 0,
-          },
-        }}
+        onClick={() => { clearAuth(); navigate("/"); onClose(); }}
+        sx={{ [`& .${listItemIconClasses.root}`]: { ml: "auto", minWidth: 0 } }}
       >
         <ListItemText>Logout</ListItemText>
-        <ListItemIcon>
-          <LogoutRoundedIcon fontSize="small" />
-        </ListItemIcon>
+        <ListItemIcon><LogoutRoundedIcon fontSize="small" /></ListItemIcon>
       </MenuItem>
     </Menu>
   );

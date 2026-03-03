@@ -1,8 +1,6 @@
 import Typography from "@mui/material/Typography";
 import * as React from "react";
-import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
 import NavbarBreadcrumbs from "./NavbarBreadcrumbs";
-import MenuButton from "./MenuButton";
 import ColorModeIconDropdown from "../../shared-ui-theme/ColorModeIconDropdown";
 import Stack from "@mui/material/Stack";
 import Avatar from "@mui/material/Avatar";
@@ -10,11 +8,9 @@ import Box from "@mui/material/Box";
 import { useAuth } from "../../AuthContext";
 import OptionsMenu from "./OptionsMenu";
 
-export default function Header() {
+export default function Header({ projectId }: { projectId: string }) {
   const { user } = useAuth();
-  const [menuAnchorEl, setMenuAnchorEl] = React.useState<null | HTMLElement>(
-    null,
-  );
+  const [menuAnchorEl, setMenuAnchorEl] = React.useState<null | HTMLElement>(null);
 
   const handleAvatarClick = (event: React.MouseEvent<HTMLElement>) => {
     setMenuAnchorEl(event.currentTarget);
@@ -22,19 +18,6 @@ export default function Header() {
 
   const handleMenuClose = () => {
     setMenuAnchorEl(null);
-  };
-
-  const iconWrapperSx = {
-    width: 36,
-    height: 36,
-    borderRadius: "50%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    "&:hover": {
-      backgroundColor: "action.hover",
-    },
   };
 
   return (
@@ -55,22 +38,13 @@ export default function Header() {
         <Box>
           <ColorModeIconDropdown />
         </Box>
-
         <Avatar
-          alt={user?.FirstName}
+          alt={user?.first_name}
           src="/static/images/avatar/7.jpg"
-          sx={{
-            width: 36,
-            height: 36,
-            cursor: "pointer",
-            "&:hover": {
-              backgroundColor: "action.hover",
-            },
-          }}
+          sx={{ width: 36, height: 36, cursor: "pointer", "&:hover": { opacity: 0.85 } }}
           onClick={handleAvatarClick}
         />
-
-        <OptionsMenu anchorEl={menuAnchorEl} onClose={handleMenuClose} />
+        <OptionsMenu anchorEl={menuAnchorEl} onClose={handleMenuClose} projectId={projectId} />
       </Stack>
     </Stack>
   );
