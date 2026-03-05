@@ -37,3 +37,5 @@ export const PASSWORD_UPDATE_V1_ENDPOINT =
   export const CREATE_PROJECT_ENDPOINT = UASAM_ENDPOINT + "/api/project/v1/create/";
   export const AGENT_LIST_V1_ENDPOINT = UASAM_ENDPOINT + "/api/agent/v1/list/";
   export const BACKEND_SDK_KEY_CREATE_ENDPOINT = UASAM_ENDPOINT + "/api/project/v1/sdk/backend/key/create/";
+  export const BACKEND_SDK_KEY_LIST_ENDPOINT = UASAM_ENDPOINT + "/api/project/v1/sdk/backend/key/list/";
+  export const BACKEND_SDK_KEY_REVOKE_ENDPOINT = UASAM_ENDPOINT + "/api/project/v1/sdk/backend/key/revoke/";

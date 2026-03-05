@@ -80,7 +80,6 @@ export default function Dashboard(props: { disableCustomTheme?: boolean }) {
 
   useEffect(() => {
     if (projectsLoading) return;
-    console.log("PROJECT LEGNTH", projects.length);
     if (projects.length === 0) {
       navigate("/projects/create/", { replace: true });
     }

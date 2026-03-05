@@ -11,6 +11,8 @@ import {
   PASSWORD_UPDATE_V1_ENDPOINT,
   AGENT_LIST_V1_ENDPOINT,
   AGENT_KEY_REVOKE_ENDPOINT,
+  BACKEND_SDK_KEY_LIST_ENDPOINT,
+  BACKEND_SDK_KEY_REVOKE_ENDPOINT,
 } from "../constants";
 import ColorModeIconDropdown from "../shared-ui-theme/ColorModeIconDropdown";
 import IconButton from "@mui/material/IconButton";
@@ -21,6 +23,7 @@ import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
 import KeyIcon from "@mui/icons-material/Key";
 import BlockIcon from "@mui/icons-material/Block";
+import VpnKeyIcon from "@mui/icons-material/VpnKey";
 
 interface AgentKey {
   id: string;
@@ -29,6 +32,16 @@ interface AgentKey {
   created_at: string;
   expires_at: string | null;
   active: boolean;
+}
+
+interface BackendSdkKey {
+  id: string;
+  prefix: string;
+  name: string | null;
+  created_at: string;
+  expires_at: string | null;
+  active: boolean;
+  revoked_at: string | null;
 }
 
 interface Agent {
@@ -46,7 +59,7 @@ export default function Account(props: { disableCustomTheme?: boolean }) {
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get("projectId") ?? "";
 
-  const [selectedMenu, setSelectedMenu] = useState<"user" | "resetPassword" | "agentKeys">("user");
+  const [selectedMenu, setSelectedMenu] = useState<"user" | "resetPassword" | "agentKeys" | "backendSdkKeys">("user");
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -57,6 +70,9 @@ export default function Account(props: { disableCustomTheme?: boolean }) {
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
+  const [backendSdkKeys, setBackendSdkKeys] = useState<BackendSdkKey[]>([]);
+  const [backendSdkKeysLoading, setBackendSdkKeysLoading] = useState(false);
+  const [revokingBackendKeyId, setRevokingBackendKeyId] = useState<string | null>(null);
   const [snackBarSuccessValue, snackBarPromptSuccess] = useState<string | null>(null);
   const [snackBarErrorValue, snackBarPromptError] = useState<string | null>(null);
 
@@ -73,6 +89,12 @@ export default function Account(props: { disableCustomTheme?: boolean }) {
   useEffect(() => {
     if (selectedMenu === "agentKeys" && projectId && accessToken) {
       fetchAgents();
+    }
+  }, [selectedMenu]);
+
+  useEffect(() => {
+    if (selectedMenu === "backendSdkKeys" && projectId && accessToken) {
+      fetchBackendSdkKeys();
     }
   }, [selectedMenu]);
 
@@ -96,6 +118,57 @@ export default function Account(props: { disableCustomTheme?: boolean }) {
       snackBarPromptError("Network error loading agents.");
     } finally {
       setAgentsLoading(false);
+    }
+  };
+
+  const fetchBackendSdkKeys = async () => {
+    if (!accessToken || !projectId) return;
+    setBackendSdkKeysLoading(true);
+    setBackendSdkKeys([]);
+    try {
+      const res = await fetch(BACKEND_SDK_KEY_LIST_ENDPOINT, {
+        method: "GET",
+        headers: {
+          "X-OTAS-USER-TOKEN": accessToken,
+          "X-OTAS-PROJECT-ID": projectId,
+        },
+      });
+      const data = await res.json();
+      if (data.status === 1) setBackendSdkKeys(data.response_body?.keys ?? []);
+      else snackBarPromptError("Failed to load backend SDK keys.");
+    } catch {
+      snackBarPromptError("Network error loading backend SDK keys.");
+    } finally {
+      setBackendSdkKeysLoading(false);
+    }
+  };
+
+  const handleRevokeBackendKey = async (keyId: string) => {
+    if (!accessToken || !projectId) return;
+    setRevokingBackendKeyId(keyId);
+    try {
+      const res = await fetch(BACKEND_SDK_KEY_REVOKE_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-OTAS-USER-TOKEN": accessToken,
+          "X-OTAS-PROJECT-ID": projectId,
+        },
+        body: JSON.stringify({ sdk_key_id: keyId }),
+      });
+      const data = await res.json();
+      if (data.status === 1) {
+        setBackendSdkKeys((prev) =>
+          prev.map((k) => (k.id === keyId ? { ...k, active: false } : k))
+        );
+        snackBarPromptSuccess("Backend SDK key revoked successfully.");
+      } else {
+        snackBarPromptError(data.status_description || "Failed to revoke key.");
+      }
+    } catch {
+      snackBarPromptError("Network error revoking key.");
+    } finally {
+      setRevokingBackendKeyId(null);
     }
   };
 
@@ -203,6 +276,11 @@ export default function Account(props: { disableCustomTheme?: boolean }) {
                 sx={{ borderRadius: 2, mx: 1, px: 2, ...(selectedMenu === "agentKeys" && { backgroundColor: "action.selected" }) }}>
                 <KeyIcon fontSize="small" sx={{ mr: 1, opacity: 0.7 }} />
                 <ListItemText primary="Agent Keys" />
+              </ListItemButton>
+              <ListItemButton selected={selectedMenu === "backendSdkKeys"} onClick={() => setSelectedMenu("backendSdkKeys")}
+                sx={{ borderRadius: 2, mx: 1, px: 2, ...(selectedMenu === "backendSdkKeys" && { backgroundColor: "action.selected" }) }}>
+                <VpnKeyIcon fontSize="small" sx={{ mr: 1, opacity: 0.7 }} />
+                <ListItemText primary="Backend SDK Keys" />
               </ListItemButton>
               <ListItemButton onClick={() => { clearAuth(); navigate("/"); }}
                 sx={{ borderRadius: 2, mx: 1, px: 2, mt: 2, color: "error.main" }}>
@@ -325,6 +403,77 @@ export default function Account(props: { disableCustomTheme?: boolean }) {
                           </Box>
                         )}
                       </>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+
+            {selectedMenu === "backendSdkKeys" && (
+              <>
+                <Typography variant="h4" gutterBottom>Backend SDK Keys</Typography>
+                {!projectId ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    No project selected. Please navigate here from the Dashboard with a project selected.
+                  </Typography>
+                ) : backendSdkKeysLoading ? (
+                  <Box sx={{ display: "flex", justifyContent: "center", mt: 6 }}><CircularProgress /></Box>
+                ) : (
+                  <>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                      Backend SDK keys are used to authenticate your server with the OTAS API. Create keys from the Dashboard; revoke them here when no longer needed.
+                    </Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+                      <Typography variant="subtitle1" fontWeight={600}>Project SDK Keys</Typography>
+                      <Chip label={`${backendSdkKeys.length} key${backendSdkKeys.length !== 1 ? "s" : ""}`} size="small" variant="outlined" />
+                    </Box>
+                    {backendSdkKeys.length === 0 ? (
+                      <Typography variant="body2" color="text.secondary">No backend SDK keys for this project.</Typography>
+                    ) : (
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                        {backendSdkKeys.map((key) => (
+                          <Box key={key.id} sx={(theme) => ({
+                            display: "flex", alignItems: "center", justifyContent: "space-between",
+                            px: 2, py: 1.5, borderRadius: 2, border: "1px solid",
+                            borderColor: key.active ? "divider" : "error.main",
+                            backgroundColor: key.active
+                              ? (theme.palette.mode === "dark" ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)")
+                              : (theme.palette.mode === "dark" ? "rgba(255,0,0,0.05)" : "rgba(255,0,0,0.03)"),
+                          })}>
+                            <Box>
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+                                <VpnKeyIcon fontSize="small" sx={{ color: key.active ? "primary.main" : "error.main" }} />
+                                <Typography variant="body2" fontWeight={600} sx={{ fontFamily: "monospace" }}>
+                                  otas_{key.prefix}••••••••
+                                </Typography>
+                                {key.name && (
+                                  <Typography variant="caption" color="text.secondary">({key.name})</Typography>
+                                )}
+                                <Chip
+                                  label={key.active ? "Active" : "Revoked"}
+                                  color={key.active ? "success" : "error"}
+                                  size="small"
+                                />
+                              </Box>
+                              <Typography variant="caption" color="text.secondary" sx={{ ml: 3.5 }}>
+                                Created: {formatDate(key.created_at)}
+                                {key.expires_at && `  ·  Expires: ${formatDate(key.expires_at)}`}
+                              </Typography>
+                            </Box>
+                            <Button
+                              variant="outlined"
+                              color="error"
+                              size="small"
+                              startIcon={revokingBackendKeyId === key.id ? <CircularProgress size={14} color="error" /> : <BlockIcon fontSize="small" />}
+                              disabled={!key.active || revokingBackendKeyId === key.id}
+                              onClick={() => handleRevokeBackendKey(key.id)}
+                              sx={{ ml: 2, whiteSpace: "nowrap" }}
+                            >
+                              {revokingBackendKeyId === key.id ? "Revoking..." : key.active ? "Revoke" : "Revoked"}
+                            </Button>
+                          </Box>
+                        ))}
+                      </Box>
                     )}
                   </>
                 )}

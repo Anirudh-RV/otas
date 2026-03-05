@@ -376,8 +376,55 @@ class BackendSDKKeyRevokeView(View):
                 "status": 0,
                 "status_description": "sdk_key_revoke_failed"
             }, status=500)
-            
-            
+
+
+@method_decorator(user_project_auth_required, name='dispatch')
+class BackendSDKKeyListView(View):
+    """
+    GET /api/project/v1/sdk/backend/key/list/
+
+    List backend SDK keys for the current project.
+    Headers: X-OTAS-USER-TOKEN, X-OTAS-PROJECT-ID.
+    Returns keys with id, prefix, name, created_at, expires_at, active, revoked_at (no raw key).
+    """
+
+    def get(self, request, *args, **kwargs):
+        project = request.project
+        privilege = request.privilege
+
+        if privilege != UserProjectMapping.PRIVILEGE_ADMIN:
+            return JsonResponse({
+                "status": 0,
+                "status_description": "forbidden"
+            }, status=403)
+
+        try:
+            keys = BackendAPIKey.objects.filter(project=project).order_by("-created_at")
+            keys_data = [
+                {
+                    "id": str(k.id),
+                    "prefix": k.prefix,
+                    "name": k.name,
+                    "created_at": k.created_at.isoformat(),
+                    "expires_at": k.expires_at.isoformat() if k.expires_at else None,
+                    "active": k.active,
+                    "revoked_at": k.revoked_at.isoformat() if k.revoked_at else None,
+                }
+                for k in keys
+            ]
+            return JsonResponse({
+                "status": 1,
+                "status_description": "backend_sdk_keys_listed",
+                "response_body": {"keys": keys_data}
+            }, status=200)
+        except Exception:
+            logger.exception("Failed to list backend SDK keys")
+            return JsonResponse({
+                "status": 0,
+                "status_description": "sdk_key_list_failed"
+            }, status=500)
+
+
 @method_decorator(sdk_authenticator, name='dispatch')
 class BackendSDKAuthenticateView(View):
     def post(self, request, *args, **kwargs):
