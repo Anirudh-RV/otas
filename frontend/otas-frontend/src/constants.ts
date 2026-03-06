@@ -46,3 +46,5 @@ export const BACKEND_SDK_KEY_LIST_ENDPOINT =
   UASAM_ENDPOINT + "/api/project/v1/sdk/backend/key/list/";
 export const BACKEND_SDK_KEY_REVOKE_ENDPOINT =
   UASAM_ENDPOINT + "/api/project/v1/sdk/backend/key/revoke/";
+export const AGENT_SESSION_LIST_V1_ENDPOINT = 
+  UASAM_ENDPOINT + "/api/agent/v1/sessions/list/";

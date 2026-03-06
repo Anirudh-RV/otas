@@ -26,6 +26,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { AGENT_SESSION_LIST_V1_ENDPOINT } from "../../constants";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -40,7 +41,16 @@ function getLast7Days() {
   return { start: formatDate(start), end: formatDate(end) };
 }
 
-// Pivot [{path, data:[{date,count}]}] → [{date, "/path/a": n, "/path/b": n}]
+function buildLast7DaysBuckets(): { date: string; sessions: number }[] {
+  const buckets = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    buckets.push({ date: formatDate(d), sessions: 0 });
+  }
+  return buckets;
+}
+
 function pivotPathData(
   paths: { path: string; data: { date: string; count: number }[] }[],
 ) {
@@ -67,7 +77,7 @@ const LINE_COLORS = [
   "#65a30d",
 ];
 
-// ── TimeseriesChart ───────────────────────────────────────────────────────────
+// ── TimeseriesChart (existing path chart) ─────────────────────────────────────
 
 function TimeseriesChart({
   paths,
@@ -81,51 +91,68 @@ function TimeseriesChart({
 
   if (chartData.length === 0) {
     return (
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height,
-          width: "100%",
-        }}
-      >
-        <Typography variant="body2" color="text.secondary">
-          No data for this period
-        </Typography>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height, width: "100%" }}>
+        <Typography variant="body2" color="text.secondary">No data for this period</Typography>
       </Box>
     );
   }
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <LineChart
-        data={chartData}
-        margin={{ top: 8, right: 16, left: -10, bottom: 0 }}
-      >
+      <LineChart data={chartData} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
-        <XAxis
-          dataKey="date"
-          tick={{ fontSize: 11 }}
-          tickFormatter={(v) => v.slice(5)}
-        />
+        <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v) => v.slice(5)} />
+        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} labelFormatter={(l) => `Date: ${l}`} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        {allPaths.map((path, i) => (
+          <Line key={path} type="monotone" dataKey={path}
+            stroke={LINE_COLORS[i % LINE_COLORS.length]} strokeWidth={2}
+            dot={{ r: 3 }} activeDot={{ r: 5 }} />
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ── SessionsPerDayChart ───────────────────────────────────────────────────────
+
+function SessionsPerDayChart({
+  data,
+  height = 220,
+}: {
+  data: { date: string; sessions: number }[];
+  height?: number;
+}) {
+  if (data.every((d) => d.sessions === 0)) {
+    return (
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height, width: "100%" }}>
+        <Typography variant="body2" color="text.secondary">No sessions in the last 7 days</Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <LineChart data={data} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+        <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v) => v.slice(5)} />
         <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
         <Tooltip
           contentStyle={{ fontSize: 12, borderRadius: 8 }}
           labelFormatter={(l) => `Date: ${l}`}
+          formatter={(v: any) => [v, "Sessions"]}
         />
         <Legend wrapperStyle={{ fontSize: 12 }} />
-        {allPaths.map((path, i) => (
-          <Line
-            key={path}
-            type="monotone"
-            dataKey={path}
-            stroke={LINE_COLORS[i % LINE_COLORS.length]}
-            strokeWidth={2}
-            dot={{ r: 3 }}
-            activeDot={{ r: 5 }}
-          />
-        ))}
+        <Line
+          type="monotone"
+          dataKey="sessions"
+          name="Sessions"
+          stroke="#2563eb"
+          strokeWidth={2}
+          dot={{ r: 3 }}
+          activeDot={{ r: 5 }}
+        />
       </LineChart>
     </ResponsiveContainer>
   );
@@ -136,88 +163,42 @@ function TimeseriesChart({
 function AnalyticsCard({
   title,
   loading,
-  expandedHeight = 420,
   children,
 }: {
   title: string;
   loading: boolean;
-  expandedHeight?: number;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <Box
-        sx={{
-          position: "relative",
-          border: "1px solid",
-          borderColor: "divider",
-          borderRadius: 2,
-          p: 2,
-          bgcolor: "background.paper",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-          minHeight: 280,
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-          sx={{ mb: 1 }}
-        >
-          <Typography variant="subtitle2" fontWeight={600}>
-            {title}
-          </Typography>
+      <Box sx={{
+        position: "relative", border: "1px solid", borderColor: "divider",
+        borderRadius: 2, p: 2, bgcolor: "background.paper",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.06)", minHeight: 280,
+        display: "flex", flexDirection: "column",
+      }}>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+          <Typography variant="subtitle2" fontWeight={600}>{title}</Typography>
           <IconButton size="small" onClick={() => setOpen(true)} title="Expand">
             <OpenInFullIcon sx={{ fontSize: 16 }} />
           </IconButton>
         </Stack>
-
-        <Box
-          sx={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: 220,
-          }}
-        >
+        <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 220 }}>
           {loading ? <CircularProgress size={28} /> : children}
         </Box>
       </Box>
 
-      {/* Expanded dialog */}
-      <Dialog
-        open={open}
-        onClose={() => setOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            pb: 1,
-          }}
-        >
-          <Typography variant="subtitle1" fontWeight={600}>
-            {title}
-          </Typography>
-          <IconButton size="small" onClick={() => setOpen(false)}>
-            <CloseIcon fontSize="small" />
-          </IconButton>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pb: 1 }}>
+          <Typography variant="subtitle1" fontWeight={600}>{title}</Typography>
+          <IconButton size="small" onClick={() => setOpen(false)}><CloseIcon fontSize="small" /></IconButton>
         </DialogTitle>
         <DialogContent>
           {loading ? (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-              <CircularProgress />
-            </Box>
+            <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}><CircularProgress /></Box>
           ) : (
-            // Re-render children with taller height for the expanded view
             <Box sx={{ pt: 1 }}>{children}</Box>
           )}
         </DialogContent>
@@ -230,7 +211,7 @@ function AnalyticsCard({
 
 export default function Analytics({
   projectId,
-  agents,
+  agents=[],
 }: {
   projectId: string | undefined;
   agents: any[];
@@ -239,7 +220,6 @@ export default function Analytics({
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // ── agent selection ──────────────────────────────────────────────────────
   const agentIdFromUrl = searchParams.get("agent_id");
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
 
@@ -267,17 +247,15 @@ export default function Analytics({
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId);
 
-  // ── timeseries data ──────────────────────────────────────────────────────
+  // ── existing path timeseries ─────────────────────────────────────────────
   const [timeseriesData, setTimeseriesData] = useState<
     { path: string; data: { date: string; count: number }[] }[]
   >([]);
   const [timeseriesLoading, setTimeseriesLoading] = useState(false);
-
   const { start, end } = getLast7Days();
 
   useEffect(() => {
     if (!accessToken || !projectId || !selectedAgentId) return;
-
     const fetchTimeseries = async () => {
       setTimeseriesLoading(true);
       try {
@@ -293,22 +271,60 @@ export default function Analytics({
         );
         const result = await res.json();
         setTimeseriesData(result.status === 1 ? (result.paths ?? []) : []);
-      } catch (err) {
-        console.error("Failed to fetch timeseries", err);
+      } catch {
         setTimeseriesData([]);
       } finally {
         setTimeseriesLoading(false);
       }
     };
-
     fetchTimeseries();
+  }, [selectedAgentId, projectId, accessToken]);
+
+  // ── sessions per day ─────────────────────────────────────────────────────
+  const [sessionsPerDay, setSessionsPerDay] = useState<{ date: string; sessions: number }[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!accessToken || !projectId || !selectedAgentId) return;
+
+    const fetchSessions = async () => {
+      setSessionsLoading(true);
+      const buckets = buildLast7DaysBuckets();
+      try {
+        const res = await fetch(
+          `${AGENT_SESSION_LIST_V1_ENDPOINT}?agent_id=${selectedAgentId}`,
+          {
+            method: "GET",
+            headers: {
+              "X-OTAS-USER-TOKEN": accessToken,
+              "X-OTAS-PROJECT-ID": projectId,
+            },
+          },
+        );
+        const data = await res.json();
+        if (data.status === 1) {
+          const sessions: { created_at: string }[] = data.response.sessions ?? [];
+          // Count sessions per day, only within last 7 days
+          for (const session of sessions) {
+            const day = session.created_at.split("T")[0];
+            const bucket = buckets.find((b) => b.date === day);
+            if (bucket) bucket.sessions += 1;
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch sessions", err);
+      } finally {
+        setSessionsPerDay(buckets);
+        setSessionsLoading(false);
+      }
+    };
+
+    fetchSessions();
   }, [selectedAgentId, projectId, accessToken]);
 
   return (
     <Box sx={{ width: "100%", maxWidth: { sm: "100%", md: "1700px" } }}>
-      <Typography component="h2" variant="h6" sx={{ mb: 2 }}>
-        Analytics
-      </Typography>
+      <Typography component="h2" variant="h6" sx={{ mb: 2 }}>Analytics</Typography>
 
       {/* Agent selector */}
       <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
@@ -325,38 +341,30 @@ export default function Analytics({
               <MenuItem key={agent.id} value={agent.id}>
                 <Stack direction="row" alignItems="center" spacing={1}>
                   <span>{agent.name}</span>
-                  <Chip
-                    label={agent.provider}
-                    size="small"
-                    variant="outlined"
-                    sx={{ fontSize: "0.65rem", height: 18 }}
-                  />
+                  <Chip label={agent.provider} size="small" variant="outlined"
+                    sx={{ fontSize: "0.65rem", height: 18 }} />
                 </Stack>
               </MenuItem>
             ))}
           </Select>
         </FormControl>
-
         {selectedAgent && (
-          <Typography variant="body2" color="text.secondary">
-            {selectedAgent.description}
-          </Typography>
+          <Typography variant="body2" color="text.secondary">{selectedAgent.description}</Typography>
         )}
       </Stack>
 
-      {/* Chart grid — add more AnalyticsCard blocks here as you build them out */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "1fr 1fr 1fr" },
-          gap: 2,
-        }}
-      >
-        <AnalyticsCard
-          title={`API Path Requests  ${start} → ${end}`}
-          loading={timeseriesLoading}
-        >
+      {/* Chart grid */}
+      <Box sx={{
+        display: "grid",
+        gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "1fr 1fr 1fr" },
+        gap: 2,
+      }}>
+        <AnalyticsCard title={`API Path Requests  ${start} → ${end}`} loading={timeseriesLoading}>
           <TimeseriesChart paths={timeseriesData} height={220} />
+        </AnalyticsCard>
+
+        <AnalyticsCard title={`Sessions per Day  ${start} → ${end}`} loading={sessionsLoading}>
+          <SessionsPerDayChart data={sessionsPerDay} height={220} />
         </AnalyticsCard>
       </Box>
     </Box>
