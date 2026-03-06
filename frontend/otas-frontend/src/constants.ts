@@ -7,7 +7,8 @@ export const SIGN_UP_V1_INIT_ENDPOINT = UASAM_ENDPOINT + "/api/user/v1/create/";
 export const USER_AUTHENTICATE_V1_ENDPOINT =
   UASAM_ENDPOINT + "/api/user/v1/authenticate/";
 
-export const USER_FIELDS_EDIT_V1_ENDPOINT = UASAM_ENDPOINT + "/v1/user/edit/";
+export const USER_FIELDS_EDIT_V1_ENDPOINT =
+  UASAM_ENDPOINT + "/api/user/v1/edit/";
 
 export const GET_NOTIFICATIONS_V1_INIT_ENDPOINT =
   UASAM_ENDPOINT + "/v1/notification/list/";
@@ -30,12 +31,18 @@ export const USER_PYTHON_ALGORITHM_RUNS_V1_ENDPOINT =
 export const PASSWORD_UPDATE_V1_ENDPOINT =
   UASAM_ENDPOINT + "/v1/user/reset-password/update/";
 
-  // Project and Agent Endpoints
-  export const PROJECT_LIST_V1_ENDPOINT = UASAM_ENDPOINT + "/api/project/v1/list/";
-  export const AGENT_KEY_REVOKE_ENDPOINT = UASAM_ENDPOINT + "/api/agent/v1/agents/key/revoke/";
-  export const PROJECT_LIST_ENDPOINT = PROJECT_LIST_V1_ENDPOINT; 
-  export const CREATE_PROJECT_ENDPOINT = UASAM_ENDPOINT + "/api/project/v1/create/";
-  export const AGENT_LIST_V1_ENDPOINT = UASAM_ENDPOINT + "/api/agent/v1/list/";
-  export const BACKEND_SDK_KEY_CREATE_ENDPOINT = UASAM_ENDPOINT + "/api/project/v1/sdk/backend/key/create/";
-  export const BACKEND_SDK_KEY_LIST_ENDPOINT = UASAM_ENDPOINT + "/api/project/v1/sdk/backend/key/list/";
-  export const BACKEND_SDK_KEY_REVOKE_ENDPOINT = UASAM_ENDPOINT + "/api/project/v1/sdk/backend/key/revoke/";
+// Project and Agent Endpoints
+export const PROJECT_LIST_V1_ENDPOINT =
+  UASAM_ENDPOINT + "/api/project/v1/list/";
+export const AGENT_KEY_REVOKE_ENDPOINT =
+  UASAM_ENDPOINT + "/api/agent/v1/agents/key/revoke/";
+export const PROJECT_LIST_ENDPOINT = PROJECT_LIST_V1_ENDPOINT;
+export const CREATE_PROJECT_ENDPOINT =
+  UASAM_ENDPOINT + "/api/project/v1/create/";
+export const AGENT_LIST_V1_ENDPOINT = UASAM_ENDPOINT + "/api/agent/v1/list/";
+export const BACKEND_SDK_KEY_CREATE_ENDPOINT =
+  UASAM_ENDPOINT + "/api/project/v1/sdk/backend/key/create/";
+export const BACKEND_SDK_KEY_LIST_ENDPOINT =
+  UASAM_ENDPOINT + "/api/project/v1/sdk/backend/key/list/";
+export const BACKEND_SDK_KEY_REVOKE_ENDPOINT =
+  UASAM_ENDPOINT + "/api/project/v1/sdk/backend/key/revoke/";
