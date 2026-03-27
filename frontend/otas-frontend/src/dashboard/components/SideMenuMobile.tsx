@@ -82,12 +82,12 @@ export default function SideMenuMobile({
           >
             <Avatar
               sizes="small"
-              alt={user?.FirstName}
+              alt={user?.first_name}
               src="/static/images/avatar/7.jpg"
               sx={{ width: 24, height: 24 }}
             />
             <Typography component="p" variant="h6">
-              {user?.FirstName}
+              {user?.first_name}
             </Typography>
           </Stack>
           <MenuButton showBadge>

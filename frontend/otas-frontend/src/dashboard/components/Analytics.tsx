@@ -26,7 +26,10 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { AGENT_SESSION_LIST_V1_ENDPOINT } from "../../constants";
+import {
+  AGENT_PATH_TIMESERIES_ENDPOINT,
+  AGENT_SESSION_LIST_V1_ENDPOINT,
+} from "../../constants";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -260,7 +263,7 @@ export default function Analytics({
       setTimeseriesLoading(true);
       try {
         const res = await fetch(
-          `http://localhost:8002/api/v1/agent/path-timeseries/?start_date=${start}&end_date=${end}`,
+          `${AGENT_PATH_TIMESERIES_ENDPOINT}?start_date=${start}&end_date=${end}`,
           {
             headers: {
               "X-OTAS-USER-TOKEN": accessToken,

@@ -19,6 +19,7 @@ import "./App.css";
 import "highlight.js/styles/github-dark.css";
 import Account from "./account/account";
 import CreateProject from "./project/CreateProject";
+import SessionLogsPage from "./dashboard/components/SessionTimelines";
 
 function App() {
   return (
@@ -150,6 +151,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <CreateProject />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/:project_id/session-logs"
+            element={
+              <ProtectedRoute>
+                <SessionLogsPage />
               </ProtectedRoute>
             }
           />

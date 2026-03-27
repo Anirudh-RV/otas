@@ -91,11 +91,13 @@ def validate_agent_key(agent_key):
     except (requests.RequestException, Exception):
         return None
 
-def build_agent_event_and_save(agent_info, body, OPTIONAL_FIELDS):
+def build_agent_event_and_save(agent_info, body, OPTIONAL_FIELDS, *, agent_session_id):
     """
     Builds event_kwargs for agent event and saves to DB. Returns the event object.
+    agent_session_id comes from the validated session JWT (same as SDK log path).
     """
     event_kwargs = {
+        'agent_session_id': agent_session_id,
         'agent_id': agent_info['agent_id'],
         'project_id': agent_info['project_id'],
         'path': body['path'],

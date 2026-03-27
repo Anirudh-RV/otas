@@ -6,6 +6,7 @@ import ListItemText from "@mui/material/ListItemText";
 import Stack from "@mui/material/Stack";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import AnalyticsRoundedIcon from "@mui/icons-material/AnalyticsRounded";
+import TimelineIcon from "@mui/icons-material/Timeline";
 import LockIcon from "@mui/icons-material/Lock";
 import HelpRoundedIcon from "@mui/icons-material/HelpRounded";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
@@ -14,12 +15,13 @@ export default function MenuContent({
   selectedPage,
   onSelectPage,
 }: {
-  selectedPage: "home" | "analytics";
-  onSelectPage: (page: "home" | "analytics") => void;
+  selectedPage: "home" | "analytics" | "logs";
+  onSelectPage: (page: "home" | "analytics" | "logs") => void;
 }) {
   const mainListItems = [
     { text: "Home", icon: <HomeRoundedIcon />, key: "home" },
     { text: "Analytics", icon: <AnalyticsRoundedIcon />, key: "analytics" },
+    { text: "Session Logs", icon: <TimelineIcon />, key: "logs" },
   ];
 
   return (

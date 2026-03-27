@@ -1,5 +1,6 @@
 import json
 import logging
+import uuid
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
@@ -128,6 +129,12 @@ class AgentEventCaptureView(View):
                 'status_description': 'invalid_or_expired_token',
             }, status=401)
 
+        if str(token_data['agent_id']) != str(auth_data['agent_id']):
+            return JsonResponse({
+                'status': 0,
+                'status_description': 'session_agent_mismatch',
+            }, status=403)
+
         try:
             body = json.loads(request.body or '{}')
         except json.JSONDecodeError:
@@ -145,7 +152,12 @@ class AgentEventCaptureView(View):
             }, status=400)
 
         try:
-            event = build_agent_event_and_save(auth_data, body, OPTIONAL_FIELDS)
+            event = build_agent_event_and_save(
+                auth_data,
+                body,
+                OPTIONAL_FIELDS,
+                agent_session_id=token_data['agent_session_id'],
+            )
             return JsonResponse({
                 'status': 1,
                 'status_description': 'event_captured',
@@ -281,3 +293,111 @@ class AgentPathTimeseriesView(View):
         except Exception:
             logger.exception("AgentPathTimeseriesView failed")
             return JsonResponse({"status": 0, "status_description": "server_error"}, status=500)
+
+
+def _serialize_backend_event(ev: BackendEvent) -> dict:
+    return {
+        "event_id": str(ev.event_id),
+        "event_time": ev.event_time.isoformat(),
+        "event_date": ev.event_date.isoformat() if ev.event_date else None,
+        "project_id": ev.project_id,
+        "agent_id": ev.agent_id,
+        "agent_session_id": ev.agent_session_id,
+        "path": ev.path,
+        "method": ev.method,
+        "status_code": ev.status_code,
+        "latency_ms": ev.latency_ms,
+        "request_size_bytes": ev.request_size_bytes,
+        "response_size_bytes": ev.response_size_bytes,
+        "request_headers": ev.request_headers,
+        "request_body": ev.request_body,
+        "query_params": ev.query_params,
+        "post_data": ev.post_data,
+        "response_headers": ev.response_headers,
+        "response_body": ev.response_body,
+        "request_content_type": ev.request_content_type,
+        "response_content_type": ev.response_content_type,
+        "custom_properties": ev.custom_properties,
+        "error": ev.error,
+        "metadata": ev.metadata,
+        "created_at": ev.created_at.isoformat(),
+    }
+
+
+@method_decorator(agent_user_auth_required, name="dispatch")
+class AgentSessionEventsView(View):
+    """
+    GET /api/v1/agent/session/events/
+
+    Lists BackendEvent rows for one agent session, ordered by event_time.
+
+    Headers (via agent_user_auth_required):
+        X-OTAS-USER-TOKEN, X-OTAS-AGENT-ID, X-OTAS-PROJECT-ID
+
+    Query:
+        session_id (UUID, required) — UASAM AgentSession.id / JWT agent_session_id
+        limit (optional, default 200, max 500) — max rows returned
+    """
+
+    _DEFAULT_LIMIT = 200
+    _MAX_LIMIT = 500
+
+    def get(self, request):
+        try:
+            session_id = request.GET.get("session_id")
+            if not session_id:
+                return JsonResponse(
+                    {"status": 0, "status_description": "session_id is required"},
+                    status=400,
+                )
+            try:
+                uuid.UUID(session_id)
+            except ValueError:
+                return JsonResponse(
+                    {"status": 0, "status_description": "session_id must be a valid UUID"},
+                    status=400,
+                )
+
+            raw_limit = request.GET.get("limit", str(self._DEFAULT_LIMIT))
+            try:
+                limit = int(raw_limit)
+            except ValueError:
+                return JsonResponse(
+                    {"status": 0, "status_description": "limit must be an integer"},
+                    status=400,
+                )
+            limit = max(1, min(limit, self._MAX_LIMIT))
+
+            agent_id = str(request.auth_agent_id)
+            project_id = str(request.auth_project_id)
+
+            qs = (
+                BackendEvent.objects.filter(
+                    agent_id=agent_id,
+                    project_id=project_id,
+                    agent_session_id=session_id,
+                )
+                .order_by("event_time", "event_id")
+                [:limit]
+            )
+
+            events = [_serialize_backend_event(ev) for ev in qs]
+
+            return JsonResponse(
+                {
+                    "status": 1,
+                    "status_description": "session_events_listed",
+                    "agent_id": agent_id,
+                    "project_id": project_id,
+                    "session_id": session_id,
+                    "count": len(events),
+                    "events": events,
+                },
+                status=200,
+            )
+        except Exception:
+            logger.exception("AgentSessionEventsView failed")
+            return JsonResponse(
+                {"status": 0, "status_description": "server_error"},
+                status=500,
+            )

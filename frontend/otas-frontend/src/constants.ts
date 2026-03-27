@@ -1,5 +1,7 @@
 export const ENV = "DEV";
 export const UASAM_ENDPOINT = "http://localhost:8000";
+/** Event capture & analytics (path-timeseries, session events). */
+export const BRAIN_ENDPOINT = "http://localhost:8002";
 export const GOVERNOR_ENDPOINT = "http://localhost:8008";
 
 export const SIGN_UP_V1_INIT_ENDPOINT = UASAM_ENDPOINT + "/api/user/v1/create/";
@@ -46,5 +48,11 @@ export const BACKEND_SDK_KEY_LIST_ENDPOINT =
   UASAM_ENDPOINT + "/api/project/v1/sdk/backend/key/list/";
 export const BACKEND_SDK_KEY_REVOKE_ENDPOINT =
   UASAM_ENDPOINT + "/api/project/v1/sdk/backend/key/revoke/";
-export const AGENT_SESSION_LIST_V1_ENDPOINT = 
+export const AGENT_SESSION_LIST_V1_ENDPOINT =
   UASAM_ENDPOINT + "/api/agent/v1/sessions/list/";
+
+export const AGENT_PATH_TIMESERIES_ENDPOINT =
+  BRAIN_ENDPOINT + "/api/v1/agent/path-timeseries/";
+
+export const AGENT_SESSION_EVENTS_ENDPOINT =
+  BRAIN_ENDPOINT + "/api/v1/agent/session/events/";
