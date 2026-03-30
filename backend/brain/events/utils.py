@@ -2,6 +2,8 @@ from .models import BackendEvent
 import jwt
 import requests
 from django.conf import settings
+from django.db.models import Aggregate
+from django.db.models.fields import FloatField
 
 SDK_AUTH_URL = getattr(settings, 'SDK_AUTH_URL', 'http://uasam-backend:8000/api/project/v1/sdk/backend/key/authenticate/')
 AGENT_AUTH_URL = getattr(settings, 'AGENT_AUTH_URL', 'http://uasam-backend:8000/api/agent/v1/auth/verify/')
@@ -109,3 +111,14 @@ def build_agent_event_and_save(agent_info, body, OPTIONAL_FIELDS, *, agent_sessi
         if field in body:
             event_kwargs[field] = body[field]
     return BackendEvent.objects.create(**event_kwargs)
+
+
+
+class Percentile(Aggregate):
+    function = "PERCENTILE_CONT"
+    name = "Percentile"
+    output_field = FloatField() # type: ignore
+    template = "%(function)s(%(percentile)s) WITHIN GROUP (ORDER BY %(expressions)s)"
+
+    def __init__(self, expression, percentile, **extra):
+        super().__init__(expression, percentile=percentile, **extra)

@@ -4,6 +4,8 @@ from .views import (
     AgentEventCaptureView,
     AgentPathTimeseriesView,
     AgentSessionEventsView,
+    AgentLatencyPercentilesView,
+    AgentErrorCountView,
 )
 
 urlpatterns = [
@@ -15,4 +17,6 @@ urlpatterns = [
         AgentSessionEventsView.as_view(),
         name="agent-session-events",
     ),
+    path("api/v1/agent/latency-percentiles/", AgentLatencyPercentilesView.as_view(), name="agent-latency-percentiles"),
+    path("api/v1/agent/error-count/", AgentErrorCountView.as_view(), name="agent-error-count"),
 ]

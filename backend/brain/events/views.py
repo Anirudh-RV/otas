@@ -10,7 +10,7 @@ from django.db.models import Count
 
 from decorators import agent_user_auth_required
 from .models import BackendEvent
-from .utils import validate_agent_session_token, verify_sdk_key, build_event_and_save, validate_agent_key, build_agent_event_and_save
+from .utils import validate_agent_session_token, verify_sdk_key, build_event_and_save, validate_agent_key, build_agent_event_and_save, Percentile
 
 logger = logging.getLogger(__name__)
 
@@ -401,3 +401,240 @@ class AgentSessionEventsView(View):
                 {"status": 0, "status_description": "server_error"},
                 status=500,
             )
+            
+
+@method_decorator(agent_user_auth_required, name="dispatch")
+class AgentLatencyPercentilesView(View):
+    """
+    GET /api/v1/agent/latency-percentiles/
+
+    Returns daily latency percentiles (p50, p95, p99) for a specific agent
+    over a given date range. Intended for rendering bar/line graphs showing
+    latency distribution over time.
+
+    Authentication:
+        Requires the following headers, validated via agent_user_auth_required:
+            X-OTAS-USER-TOKEN  : JWT token identifying the user
+            X-OTAS-AGENT-ID    : UUID of the agent
+            X-OTAS-PROJECT-ID  : UUID of the project the agent belongs to
+
+    Query Parameters:
+        start_date (str): Start of the date range in YYYY-MM-DD format (inclusive).
+        end_date   (str): End of the date range in YYYY-MM-DD format (inclusive).
+
+    Success Response (200):
+        {
+            "status": 1,
+            "agent_id": "<agent_uuid>",
+            "project_id": "<project_uuid>",
+            "data": [
+                {
+                    "date": "2026-03-26",
+                    "p50": 142.3,
+                    "p95": 489.1,
+                    "p99": 1203.7
+                },
+                ...
+            ]
+        }
+
+        Notes:
+            - Only dates with at least one event are included (no zero-fill).
+            - Dates are ordered ascending.
+            - All latency values are in milliseconds, rounded to 1 decimal place.
+            - Percentiles are computed using Postgres PERCENTILE_CONT (exact interpolation).
+
+    Error Responses:
+        400 - missing_dates        : start_date or end_date not provided.
+        400 - invalid_date_format  : Dates are not in YYYY-MM-DD format.
+        400 - invalid_date_range   : start_date is after end_date.
+        401 - missing_user_token   : X-OTAS-USER-TOKEN header is absent.
+        400 - missing_agent_id     : X-OTAS-AGENT-ID header is absent.
+        400 - missing_project_id   : X-OTAS-PROJECT-ID header is absent.
+        403 - forbidden            : User does not have access to the project.
+        404 - agent_not_found      : Agent does not exist or is inactive.
+        503 - auth_service_timeout : UASAM auth service did not respond in time.
+        503 - auth_service_error   : UASAM auth service is unreachable.
+        500 - server_error         : Unexpected internal error.
+    """
+
+    def get(self, request):
+        try:
+            agent_id = request.auth_agent_id
+            start_date = request.GET.get("start_date")
+            end_date = request.GET.get("end_date")
+
+            if not start_date or not end_date:
+                return JsonResponse(
+                    {"status": 0, "status_description": "start_date and end_date are required"},
+                    status=400,
+                )
+
+            try:
+                start = datetime.strptime(start_date, "%Y-%m-%d").date()
+                end = datetime.strptime(end_date, "%Y-%m-%d").date()
+            except ValueError:
+                return JsonResponse(
+                    {"status": 0, "status_description": "dates must be in YYYY-MM-DD format"},
+                    status=400,
+                )
+
+            if start > end:
+                return JsonResponse(
+                    {"status": 0, "status_description": "start_date must be before or equal to end_date"},
+                    status=400,
+                )
+
+            rows = (
+                BackendEvent.objects.filter(
+                    agent_id=agent_id,
+                    event_date__gte=start,
+                    event_date__lte=end,
+                )
+                .values("event_date")
+                .annotate(
+                    p50=Percentile("latency_ms", 0.50),
+                    p95=Percentile("latency_ms", 0.95),
+                    p99=Percentile("latency_ms", 0.99),
+                )
+                .order_by("event_date")
+            )
+
+            data = [
+                {
+                    "date": row["event_date"].isoformat(),
+                    "p50": round(row["p50"], 1) if row["p50"] is not None else None,
+                    "p95": round(row["p95"], 1) if row["p95"] is not None else None,
+                    "p99": round(row["p99"], 1) if row["p99"] is not None else None,
+                }
+                for row in rows
+            ]
+
+            return JsonResponse(
+                {
+                    "status": 1,
+                    "agent_id": agent_id,
+                    "project_id": request.auth_project_id,
+                    "data": data,
+                },
+                status=200,
+            )
+
+        except Exception:
+            logger.exception("AgentLatencyPercentilesView failed")
+            return JsonResponse({"status": 0, "status_description": "server_error"}, status=500)
+        
+        
+@method_decorator(agent_user_auth_required, name="dispatch")
+class AgentErrorCountView(View):
+    """
+    GET /api/v1/agent/error-count/
+
+    Returns a daily count of errors for a specific agent over a given date
+    range. An error is any event where the error field is non-null/non-empty.
+    Intended for rendering a line graph showing error rate over time.
+
+    Authentication:
+        Requires the following headers, validated via agent_user_auth_required:
+            X-OTAS-USER-TOKEN  : JWT token identifying the user
+            X-OTAS-AGENT-ID    : UUID of the agent
+            X-OTAS-PROJECT-ID  : UUID of the project the agent belongs to
+
+    Query Parameters:
+        start_date (str): Start of the date range in YYYY-MM-DD format (inclusive).
+        end_date   (str): End of the date range in YYYY-MM-DD format (inclusive).
+
+    Success Response (200):
+        {
+            "status": 1,
+            "agent_id": "<agent_uuid>",
+            "project_id": "<project_uuid>",
+            "data": [
+                {
+                    "date": "2026-03-26",
+                    "error_count": 3
+                },
+                ...
+            ]
+        }
+
+        Notes:
+            - Only dates with at least one error are included (no zero-fill).
+            - Dates are ordered ascending.
+            - An error is counted when the error field is not null and not empty string.
+
+    Error Responses:
+        400 - missing_dates        : start_date or end_date not provided.
+        400 - invalid_date_format  : Dates are not in YYYY-MM-DD format.
+        400 - invalid_date_range   : start_date is after end_date.
+        401 - missing_user_token   : X-OTAS-USER-TOKEN header is absent.
+        400 - missing_agent_id     : X-OTAS-AGENT-ID header is absent.
+        400 - missing_project_id   : X-OTAS-PROJECT-ID header is absent.
+        403 - forbidden            : User does not have access to the project.
+        404 - agent_not_found      : Agent does not exist or is inactive.
+        503 - auth_service_timeout : UASAM auth service did not respond in time.
+        503 - auth_service_error   : UASAM auth service is unreachable.
+        500 - server_error         : Unexpected internal error.
+    """
+
+    def get(self, request):
+        try:
+            agent_id = request.auth_agent_id
+            start_date = request.GET.get("start_date")
+            end_date = request.GET.get("end_date")
+
+            if not start_date or not end_date:
+                return JsonResponse(
+                    {"status": 0, "status_description": "start_date and end_date are required"},
+                    status=400,
+                )
+
+            try:
+                start = datetime.strptime(start_date, "%Y-%m-%d").date()
+                end = datetime.strptime(end_date, "%Y-%m-%d").date()
+            except ValueError:
+                return JsonResponse(
+                    {"status": 0, "status_description": "dates must be in YYYY-MM-DD format"},
+                    status=400,
+                )
+
+            if start > end:
+                return JsonResponse(
+                    {"status": 0, "status_description": "start_date must be before or equal to end_date"},
+                    status=400,
+                )
+
+            rows = (
+                BackendEvent.objects.filter(
+                    agent_id=agent_id,
+                    event_date__gte=start,
+                    event_date__lte=end,
+                )
+                .exclude(error__isnull=True)
+                .exclude(error="")
+                .values("event_date")
+                .annotate(error_count=Count("event_id"))
+                .order_by("event_date")
+            )
+
+            data = [
+                {
+                    "date": row["event_date"].isoformat(),
+                    "error_count": row["error_count"],
+                }
+                for row in rows
+            ]
+
+            return JsonResponse(
+                {
+                    "status": 1,
+                    "agent_id": agent_id,
+                    "project_id": request.auth_project_id,
+                    "data": data,
+                },
+                status=200,
+            )
+
+        except Exception:
+            logger.exception("AgentErrorCountView failed")
+            return JsonResponse({"status": 0, "status_description": "server_error"}, status=500)
