@@ -19,6 +19,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -29,6 +31,8 @@ import {
 import {
   AGENT_PATH_TIMESERIES_ENDPOINT,
   AGENT_SESSION_LIST_V1_ENDPOINT,
+  AGENT_LATENCY_PERCENTILES_ENDPOINT,
+  AGENT_ERROR_COUNT_ENDPOINT,
 } from "../../constants";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -80,7 +84,7 @@ const LINE_COLORS = [
   "#65a30d",
 ];
 
-// ── TimeseriesChart (existing path chart) ─────────────────────────────────────
+// ── TimeseriesChart ───────────────────────────────────────────────────────────
 
 function TimeseriesChart({
   paths,
@@ -94,24 +98,50 @@ function TimeseriesChart({
 
   if (chartData.length === 0) {
     return (
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height, width: "100%" }}>
-        <Typography variant="body2" color="text.secondary">No data for this period</Typography>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height,
+          width: "100%",
+        }}
+      >
+        <Typography variant="body2" color="text.secondary">
+          No data for this period
+        </Typography>
       </Box>
     );
   }
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <LineChart data={chartData} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
+      <LineChart
+        data={chartData}
+        margin={{ top: 8, right: 16, left: -10, bottom: 0 }}
+      >
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
-        <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v) => v.slice(5)} />
+        <XAxis
+          dataKey="date"
+          tick={{ fontSize: 11 }}
+          tickFormatter={(v) => v.slice(5)}
+        />
         <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} labelFormatter={(l) => `Date: ${l}`} />
+        <Tooltip
+          contentStyle={{ fontSize: 12, borderRadius: 8 }}
+          labelFormatter={(l) => `Date: ${l}`}
+        />
         <Legend wrapperStyle={{ fontSize: 12 }} />
         {allPaths.map((path, i) => (
-          <Line key={path} type="monotone" dataKey={path}
-            stroke={LINE_COLORS[i % LINE_COLORS.length]} strokeWidth={2}
-            dot={{ r: 3 }} activeDot={{ r: 5 }} />
+          <Line
+            key={path}
+            type="monotone"
+            dataKey={path}
+            stroke={LINE_COLORS[i % LINE_COLORS.length]}
+            strokeWidth={2}
+            dot={{ r: 3 }}
+            activeDot={{ r: 5 }}
+          />
         ))}
       </LineChart>
     </ResponsiveContainer>
@@ -129,17 +159,34 @@ function SessionsPerDayChart({
 }) {
   if (data.every((d) => d.sessions === 0)) {
     return (
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height, width: "100%" }}>
-        <Typography variant="body2" color="text.secondary">No sessions in the last 7 days</Typography>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height,
+          width: "100%",
+        }}
+      >
+        <Typography variant="body2" color="text.secondary">
+          No sessions in the last 7 days
+        </Typography>
       </Box>
     );
   }
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <LineChart data={data} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
+      <LineChart
+        data={data}
+        margin={{ top: 8, right: 16, left: -10, bottom: 0 }}
+      >
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
-        <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v) => v.slice(5)} />
+        <XAxis
+          dataKey="date"
+          tick={{ fontSize: 11 }}
+          tickFormatter={(v) => v.slice(5)}
+        />
         <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
         <Tooltip
           contentStyle={{ fontSize: 12, borderRadius: 8 }}
@@ -152,6 +199,130 @@ function SessionsPerDayChart({
           dataKey="sessions"
           name="Sessions"
           stroke="#2563eb"
+          strokeWidth={2}
+          dot={{ r: 3 }}
+          activeDot={{ r: 5 }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ── LatencyBarChart ───────────────────────────────────────────────────────────
+
+function LatencyBarChart({
+  data,
+  height = 220,
+}: {
+  data: {
+    date: string;
+    p50: number | null;
+    p95: number | null;
+    p99: number | null;
+  }[];
+  height?: number;
+}) {
+  if (data.length === 0) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height,
+          width: "100%",
+        }}
+      >
+        <Typography variant="body2" color="text.secondary">
+          No data for this period
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart
+        data={data}
+        margin={{ top: 8, right: 16, left: -10, bottom: 0 }}
+      >
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+        <XAxis
+          dataKey="date"
+          tick={{ fontSize: 11 }}
+          tickFormatter={(v) => v.slice(5)}
+        />
+        <YAxis tick={{ fontSize: 11 }} unit="ms" />
+        <Tooltip
+          contentStyle={{ fontSize: 12, borderRadius: 8 }}
+          labelFormatter={(l) => `Date: ${l}`}
+          formatter={(value: any, name: string) => [`${value} ms`, name]}
+        />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <Bar
+          dataKey="p50"
+          name="p50 (median)"
+          fill="#2563eb"
+          radius={[3, 3, 0, 0]}
+        />
+        <Bar dataKey="p95" name="p95" fill="#7c3aed" radius={[3, 3, 0, 0]} />
+        <Bar dataKey="p99" name="p99" fill="#d97706" radius={[3, 3, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ── ErrorCountChart ───────────────────────────────────────────────────────────
+
+function ErrorCountChart({
+  data,
+  height = 220,
+}: {
+  data: { date: string; error_count: number }[];
+  height?: number;
+}) {
+  if (data.length === 0) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height,
+          width: "100%",
+        }}
+      >
+        <Typography variant="body2" color="text.secondary">
+          No errors in this period
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <LineChart
+        data={data}
+        margin={{ top: 8, right: 16, left: -10, bottom: 0 }}
+      >
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+        <XAxis
+          dataKey="date"
+          tick={{ fontSize: 11 }}
+          tickFormatter={(v) => v.slice(5)}
+        />
+        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+        <Tooltip
+          contentStyle={{ fontSize: 12, borderRadius: 8 }}
+          labelFormatter={(l) => `Date: ${l}`}
+          formatter={(v: any) => [v, "Errors"]}
+        />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <Line
+          type="monotone"
+          dataKey="error_count"
+          name="Errors"
+          stroke="#dc2626"
           strokeWidth={2}
           dot={{ r: 3 }}
           activeDot={{ r: 5 }}
@@ -176,31 +347,72 @@ function AnalyticsCard({
 
   return (
     <>
-      <Box sx={{
-        position: "relative", border: "1px solid", borderColor: "divider",
-        borderRadius: 2, p: 2, bgcolor: "background.paper",
-        boxShadow: "0 1px 4px rgba(0,0,0,0.06)", minHeight: 280,
-        display: "flex", flexDirection: "column",
-      }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-          <Typography variant="subtitle2" fontWeight={600}>{title}</Typography>
+      <Box
+        sx={{
+          position: "relative",
+          border: "1px solid",
+          borderColor: "divider",
+          borderRadius: 2,
+          p: 2,
+          bgcolor: "background.paper",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+          minHeight: 280,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          sx={{ mb: 1 }}
+        >
+          <Typography variant="subtitle2" fontWeight={600}>
+            {title}
+          </Typography>
           <IconButton size="small" onClick={() => setOpen(true)} title="Expand">
             <OpenInFullIcon sx={{ fontSize: 16 }} />
           </IconButton>
         </Stack>
-        <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 220 }}>
+        <Box
+          sx={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: 220,
+          }}
+        >
           {loading ? <CircularProgress size={28} /> : children}
         </Box>
       </Box>
 
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pb: 1 }}>
-          <Typography variant="subtitle1" fontWeight={600}>{title}</Typography>
-          <IconButton size="small" onClick={() => setOpen(false)}><CloseIcon fontSize="small" /></IconButton>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            pb: 1,
+          }}
+        >
+          <Typography variant="subtitle1" fontWeight={600}>
+            {title}
+          </Typography>
+          <IconButton size="small" onClick={() => setOpen(false)}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
         </DialogTitle>
         <DialogContent>
           {loading ? (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}><CircularProgress /></Box>
+            <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+              <CircularProgress />
+            </Box>
           ) : (
             <Box sx={{ pt: 1 }}>{children}</Box>
           )}
@@ -214,7 +426,7 @@ function AnalyticsCard({
 
 export default function Analytics({
   projectId,
-  agents=[],
+  agents = [],
 }: {
   projectId: string | undefined;
   agents: any[];
@@ -249,17 +461,17 @@ export default function Analytics({
   };
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId);
+  const { start, end } = getLast7Days();
 
-  // ── existing path timeseries ─────────────────────────────────────────────
+  // ── path timeseries ──────────────────────────────────────────────────────
   const [timeseriesData, setTimeseriesData] = useState<
     { path: string; data: { date: string; count: number }[] }[]
   >([]);
   const [timeseriesLoading, setTimeseriesLoading] = useState(false);
-  const { start, end } = getLast7Days();
 
   useEffect(() => {
     if (!accessToken || !projectId || !selectedAgentId) return;
-    const fetchTimeseries = async () => {
+    const fetch_ = async () => {
       setTimeseriesLoading(true);
       try {
         const res = await fetch(
@@ -280,24 +492,24 @@ export default function Analytics({
         setTimeseriesLoading(false);
       }
     };
-    fetchTimeseries();
+    fetch_();
   }, [selectedAgentId, projectId, accessToken]);
 
   // ── sessions per day ─────────────────────────────────────────────────────
-  const [sessionsPerDay, setSessionsPerDay] = useState<{ date: string; sessions: number }[]>([]);
+  const [sessionsPerDay, setSessionsPerDay] = useState<
+    { date: string; sessions: number }[]
+  >([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
 
   useEffect(() => {
     if (!accessToken || !projectId || !selectedAgentId) return;
-
-    const fetchSessions = async () => {
+    const fetch_ = async () => {
       setSessionsLoading(true);
       const buckets = buildLast7DaysBuckets();
       try {
         const res = await fetch(
           `${AGENT_SESSION_LIST_V1_ENDPOINT}?agent_id=${selectedAgentId}`,
           {
-            method: "GET",
             headers: {
               "X-OTAS-USER-TOKEN": accessToken,
               "X-OTAS-PROJECT-ID": projectId,
@@ -306,8 +518,8 @@ export default function Analytics({
         );
         const data = await res.json();
         if (data.status === 1) {
-          const sessions: { created_at: string }[] = data.response.sessions ?? [];
-          // Count sessions per day, only within last 7 days
+          const sessions: { created_at: string }[] =
+            data.response.sessions ?? [];
           for (const session of sessions) {
             const day = session.created_at.split("T")[0];
             const bucket = buckets.find((b) => b.date === day);
@@ -321,13 +533,83 @@ export default function Analytics({
         setSessionsLoading(false);
       }
     };
+    fetch_();
+  }, [selectedAgentId, projectId, accessToken]);
 
-    fetchSessions();
+  // ── latency percentiles ──────────────────────────────────────────────────
+  const [latencyData, setLatencyData] = useState<
+    {
+      date: string;
+      p50: number | null;
+      p95: number | null;
+      p99: number | null;
+    }[]
+  >([]);
+  const [latencyLoading, setLatencyLoading] = useState(false);
+
+  useEffect(() => {
+    if (!accessToken || !projectId || !selectedAgentId) return;
+    const fetch_ = async () => {
+      setLatencyLoading(true);
+      try {
+        const res = await fetch(
+          `${AGENT_LATENCY_PERCENTILES_ENDPOINT}?start_date=${start}&end_date=${end}`,
+          {
+            headers: {
+              "X-OTAS-USER-TOKEN": accessToken,
+              "X-OTAS-AGENT-ID": selectedAgentId,
+              "X-OTAS-PROJECT-ID": projectId,
+            },
+          },
+        );
+        const result = await res.json();
+        setLatencyData(result.status === 1 ? (result.data ?? []) : []);
+      } catch {
+        setLatencyData([]);
+      } finally {
+        setLatencyLoading(false);
+      }
+    };
+    fetch_();
+  }, [selectedAgentId, projectId, accessToken]);
+
+  // ── error counts ─────────────────────────────────────────────────────────
+  const [errorData, setErrorData] = useState<
+    { date: string; error_count: number }[]
+  >([]);
+  const [errorLoading, setErrorLoading] = useState(false);
+
+  useEffect(() => {
+    if (!accessToken || !projectId || !selectedAgentId) return;
+    const fetch_ = async () => {
+      setErrorLoading(true);
+      try {
+        const res = await fetch(
+          `${AGENT_ERROR_COUNT_ENDPOINT}?start_date=${start}&end_date=${end}`,
+          {
+            headers: {
+              "X-OTAS-USER-TOKEN": accessToken,
+              "X-OTAS-AGENT-ID": selectedAgentId,
+              "X-OTAS-PROJECT-ID": projectId,
+            },
+          },
+        );
+        const result = await res.json();
+        setErrorData(result.status === 1 ? (result.data ?? []) : []);
+      } catch {
+        setErrorData([]);
+      } finally {
+        setErrorLoading(false);
+      }
+    };
+    fetch_();
   }, [selectedAgentId, projectId, accessToken]);
 
   return (
     <Box sx={{ width: "100%", maxWidth: { sm: "100%", md: "1700px" } }}>
-      <Typography component="h2" variant="h6" sx={{ mb: 2 }}>Analytics</Typography>
+      <Typography component="h2" variant="h6" sx={{ mb: 2 }}>
+        Analytics
+      </Typography>
 
       {/* Agent selector */}
       <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
@@ -344,30 +626,58 @@ export default function Analytics({
               <MenuItem key={agent.id} value={agent.id}>
                 <Stack direction="row" alignItems="center" spacing={1}>
                   <span>{agent.name}</span>
-                  <Chip label={agent.provider} size="small" variant="outlined"
-                    sx={{ fontSize: "0.65rem", height: 18 }} />
+                  <Chip
+                    label={agent.provider}
+                    size="small"
+                    variant="outlined"
+                    sx={{ fontSize: "0.65rem", height: 18 }}
+                  />
                 </Stack>
               </MenuItem>
             ))}
           </Select>
         </FormControl>
         {selectedAgent && (
-          <Typography variant="body2" color="text.secondary">{selectedAgent.description}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {selectedAgent.description}
+          </Typography>
         )}
       </Stack>
 
       {/* Chart grid */}
-      <Box sx={{
-        display: "grid",
-        gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "1fr 1fr 1fr" },
-        gap: 2,
-      }}>
-        <AnalyticsCard title={`API Path Requests  ${start} → ${end}`} loading={timeseriesLoading}>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+          gap: 2,
+        }}
+      >
+        <AnalyticsCard
+          title={`API Path Requests  ${start} → ${end}`}
+          loading={timeseriesLoading}
+        >
           <TimeseriesChart paths={timeseriesData} height={220} />
         </AnalyticsCard>
 
-        <AnalyticsCard title={`Sessions per Day  ${start} → ${end}`} loading={sessionsLoading}>
+        <AnalyticsCard
+          title={`Sessions per Day  ${start} → ${end}`}
+          loading={sessionsLoading}
+        >
           <SessionsPerDayChart data={sessionsPerDay} height={220} />
+        </AnalyticsCard>
+
+        <AnalyticsCard
+          title={`Latency Percentiles  ${start} → ${end}`}
+          loading={latencyLoading}
+        >
+          <LatencyBarChart data={latencyData} height={220} />
+        </AnalyticsCard>
+
+        <AnalyticsCard
+          title={`Errors per Day  ${start} → ${end}`}
+          loading={errorLoading}
+        >
+          <ErrorCountChart data={errorData} height={220} />
         </AnalyticsCard>
       </Box>
     </Box>

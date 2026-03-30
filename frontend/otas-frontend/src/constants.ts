@@ -56,3 +56,8 @@ export const AGENT_PATH_TIMESERIES_ENDPOINT =
 
 export const AGENT_SESSION_EVENTS_ENDPOINT =
   BRAIN_ENDPOINT + "/api/v1/agent/session/events/";
+
+export const AGENT_LATENCY_PERCENTILES_ENDPOINT =
+  BRAIN_ENDPOINT + "/api/v1/agent/latency-percentiles/";
+export const AGENT_ERROR_COUNT_ENDPOINT =
+  BRAIN_ENDPOINT + "/api/v1/agent/error-count/";

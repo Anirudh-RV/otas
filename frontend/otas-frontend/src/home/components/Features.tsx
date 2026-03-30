@@ -36,21 +36,21 @@ const items = [
       "Inspect individual sessions as a step-by-step DAG — each action as a node.",
       "Track latency distributions, log counts per day, and session frequency over time.",
     ],
-    imageLight: `url("/images/light-dashboard.png")`,
-    imageDark: `url("/images/dark-dashboard.png")`,
+    imageLight: `url("/images/dag-light.png")`,
+    imageDark: `url("/images/dag-dark.png")`,
   },
   {
     icon: <BugReportIcon />,
-    title: "Error & Anomaly Tracking",
+    title: "Counts, Latency, Error & Anomaly Tracking",
     description:
-      "Catch failures before your users do. Monitor error rates and drill into exactly where things broke.",
+      "Track counts, measure latencies, catch failures before your users do. Monitor latencies & error rates and drill into exactly where things broke.",
     points: [
-      "Per-day error rate graph over the last 7 days — non-null error fields counted automatically.",
+      "A wide array of anayltics for everything you want to know about your agents.",
       "Expand any graph into a full-screen view for deeper inspection.",
       "Agent log API lets your agent emit structured logs tied to its session.",
     ],
-    imageLight: `url("/images/light-dashboard.png")`,
-    imageDark: `url("/images/dark-dashboard.png")`,
+    imageLight: `url("/images/analytics-light.png")`,
+    imageDark: `url("/images/analytics-dark.png")`,
   },
 ];
 
